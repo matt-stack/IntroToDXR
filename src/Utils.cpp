@@ -40,6 +40,7 @@
 #include <shellapi.h>
 #include <unordered_map>
 
+
 namespace std
 {
 	void hash_combine(size_t &seed, size_t hash)
@@ -67,6 +68,7 @@ namespace std
 }
 
 using namespace std;
+using DirectX::XMFLOAT3;
 
 namespace Utils
 {
@@ -202,6 +204,13 @@ void LoadModel(string filepath, Model &model, Material &material)
 	material.name = materials[0].name;
 	material.texturePath = materials[0].diffuse_texname;
 
+
+	printf("# of vertices  = %d\n", (int)(attrib.vertices.size()) / 3);
+	printf("# of normals   = %d\n", (int)(attrib.normals.size()) / 3);
+	printf("# of texcoords = %d\n", (int)(attrib.texcoords.size()) / 2);
+	printf("# of materials = %d\n", (int)materials.size());
+	printf("# of shapes    = %d\n", (int)shapes.size());
+
 	// Parse the model and store the unique vertices
 	unordered_map<Vertex, uint32_t> uniqueVertices = {};
 	for (const auto &shape : shapes) 
@@ -211,11 +220,18 @@ void LoadModel(string filepath, Model &model, Material &material)
 			Vertex vertex = {};
 			vertex.position = 
 			{
-				attrib.vertices[3 * index.vertex_index + 2],
+				attrib.vertices[3 * index.vertex_index + 2], // https://vulkan-tutorial.com/Loading_models
 				attrib.vertices[3 * index.vertex_index + 1],
 				attrib.vertices[3 * index.vertex_index + 0]
 			};
 
+			vertex.normal =
+			{
+				attrib.normals[3 * index.normal_index + 2],
+				attrib.normals[3 * index.normal_index + 1],
+				attrib.normals[3 * index.normal_index + 0]
+			};
+			
 			vertex.uv = 
 			{
 				attrib.texcoords[2 * index.texcoord_index + 0],
@@ -232,6 +248,81 @@ void LoadModel(string filepath, Model &model, Material &material)
 			model.indices.push_back(uniqueVertices[vertex]);
 		}
 	}
+
+}
+
+//--------------------------------------------------------------------------------------
+// Custom Modeling
+//--------------------------------------------------------------------------------------
+// Using VertexNorms
+ 
+void CustomModel(ModelNorms& model) {
+	unordered_map<Vertex, uint32_t> uniqueVertices = {};
+
+	// Cube indices.
+	uint32_t indices [] =
+	{
+		3,1,0,
+		2,1,3,
+
+		6,4,5,
+		7,4,6,
+
+		11,9,8,
+		10,9,11,
+
+		14,12,13,
+		15,12,14,
+
+		19,17,16,
+		18,17,19,
+
+		22,20,21,
+		23,20,22
+	};
+
+	// Cube vertices positions and corresponding triangle normals.
+	VertexNorms vertices[] =
+	{
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
+
+		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+	};
+
+	for (const auto& i : indices) {	
+		model.indices.push_back(i);
+	}
+
+	for (const auto& v : vertices) {
+		model.vertices.push_back(v);
+	}
+
 }
 
 //--------------------------------------------------------------------------------------

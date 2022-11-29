@@ -57,7 +57,7 @@ RWTexture2D<float4> RTOutput				: register(u0);
 RaytracingAccelerationStructure SceneBVH	: register(t0);
 
 ByteAddressBuffer indices					: register(t1);
-ByteAddressBuffer vertices					: register(t2);
+ByteAddressBuffer vertices					: register(t2); // where does this come from?
 Texture2D<float4> albedo					: register(t3);
 
 // ---[ Helper Functions ]---
@@ -91,4 +91,11 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 	}
 
 	return v;
+}
+
+float3 worldHitPosition() {
+
+	float3 worldRayHit = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+
+	return worldRayHit;
 }

@@ -28,12 +28,16 @@
 #include "Window.h"
 #include "Graphics.h"
 #include "Utils.h"
+#include "Windowsx.h"
+#include <directxmath.h>
 
 #ifdef _DEBUG
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
 #endif
+
+using namespace DirectX;
 
 /**
  * Your ray tracing application!
@@ -53,7 +57,8 @@ public:
 		d3d.vsync = config.vsync;
 
 		// Load a model
-		Utils::LoadModel(config.model, model, material);
+		Utils::LoadModel(config.model, model, material); // config.model is a string, model is a Model
+	//	Utils::CustomModel(model); // config.model is a string, model is a Model
 
 		// Initialize the shader compiler
 		D3DShaders::Init_Shader_Compiler(shaderCompiler);
@@ -72,14 +77,16 @@ public:
 		D3DResources::Create_BackBuffer_RTV(d3d, resources);
 		D3DResources::Create_Vertex_Buffer(d3d, resources, model);
 		D3DResources::Create_Index_Buffer(d3d, resources, model);
-		D3DResources::Create_Texture(d3d, resources, material);
+//		D3DResources::Create_Texture(d3d, resources, material);
 		D3DResources::Create_View_CB(d3d, resources);
 		D3DResources::Create_Material_CB(d3d, resources, material);
 		
 		// Create DXR specific resources
+		//DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
 		DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
 		DXR::Create_Top_Level_AS(d3d, dxr, resources);
 		DXR::Create_DXR_Output(d3d, resources);
+		//DXR::Create_Descriptor_Heaps(d3d, dxr, resources, model);	
 		DXR::Create_Descriptor_Heaps(d3d, dxr, resources, model);	
 		DXR::Create_RayGen_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Miss_Program(d3d, dxr, shaderCompiler);
@@ -95,9 +102,9 @@ public:
 		D3D12::Reset_CommandList(d3d);
 	}
 	
-	void Update() 
+	void Update(float movement, float mousex, float mousey, float mousez) 
 	{
-		D3DResources::Update_View_CB(d3d, resources);
+		D3DResources::Update_View_CB(d3d, resources, movement, mousex, mousey, mousez);
 	}
 
 	void Render() 
@@ -121,15 +128,26 @@ public:
 		DestroyWindow(window);
 	}
 	
+	HWND& getWindow() {
+		return this->window;
+	}
+
 private:
 	HWND window;
 	Model model;
+//	ModelNorms model;
 	Material material;
 
 	DXRGlobal dxr = {};
 	D3D12Global d3d = {};
 	D3D12Resources resources = {};
 	D3D12ShaderCompilerInfo shaderCompiler;
+};
+
+struct vec3 {
+	float x;
+	float y;
+	float z;
 };
 
 /**
@@ -146,14 +164,48 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 
 		// Get the application configuration
 		ConfigInfo config;
-		hr = Utils::ParseCommandLine(lpCmdLine, config);
+		hr = Utils::ParseCommandLine(lpCmdLine, config); // this sets the model str to the path in cmdline
 		if (hr != EXIT_SUCCESS) return hr;
 
 		// Initialize
 		DXRApplication app;
 		app.Init(config);
+		float movement = 0;
+		float mousex = 0;
+		float mousey = 0;
+		float mousez = 0;
+		float sensitivity = 0.001f;
+
+		float xoffset{};
+		float yoffset{};
+
+		bool mouseDown = false;
+		bool firstMouse = true;
+
+		int moving = 0;
+
+		int	width = 640;
+		int	height = 360;
+
+		int xPos = 640;
+		int yPos = 360;
+		POINT point{};
+		POINT pointStart{};
+		POINT pointEnd{};
+
+		//vec3 direction{};
+
+		DirectX::XMVECTOR direction{};
+		DirectX::XMVECTOR finalDirection{};
+
+		XMFLOAT4 tempvec{};
+		XMFLOAT4 tempvec_2{};
+
+		float yaw{};
+		float pitch{};
 
 		// Main loop
+		// https://gamedev.stackexchange.com/questions/192288/why-the-mouse-doesnt-move-in-mouse-look-feature-of-rpg-fps-games
 		while (WM_QUIT != msg.message) 
 		{
 			if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) 
@@ -161,8 +213,98 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
+			switch (msg.message){
+			case WM_KEYDOWN:
+				moving++;
+				if (msg.wParam == 0x57) movement = 4; // W
+				if (msg.wParam == 0x41) movement = 3; // A
+				if (msg.wParam == 0x53) movement = 2; // S
+				if (msg.wParam == 0x44) movement = 1; // D
+				if (msg.wParam == 0x45) movement = 5; // E
+				if (msg.wParam == 0x51) movement = 6; // Q
+				if (msg.wParam == VK_ESCAPE) PostQuitMessage(0); // Q
+				if (msg.wParam == VK_SPACE) movement = 0; // Q
+				break;
+			case WM_KEYUP:
+				moving--;
+				if (moving <= 0) {
+					movement = 0;
+				}
+				break;
+			case WM_RBUTTONDOWN:
+				mouseDown = true;
+			//	SetCapture(app.getWindow());
+			//	pointStart = MAKEPOINTS(msg.lParam);
+				GetCursorPos(&pointStart);
+				xPos = point.x;
+				yPos = point.y;
+				//xPos = GET_X_LPARAM(msg.lParam);
+				//yPos = GET_Y_LPARAM(msg.lParam);
+				break;
+			case WM_RBUTTONUP:
+				mouseDown = false;
+				break;
+			case WM_MOUSEMOVE:
+				if (mouseDown) {
+					if (firstMouse)
+					{
+						pointStart.x = xPos;
+						pointStart.y = yPos;
+						//pointStart.x = pointEnd.x;
+						//pointStart.y = pointEnd.y;
+						firstMouse = false;
+					}
 
-			app.Update();
+					GetCursorPos(&pointEnd);
+					xoffset = pointStart.x - pointEnd.x;
+					yoffset = pointStart.y - pointEnd.y;
+
+					xoffset *= sensitivity;
+					yoffset *= sensitivity;
+
+					yaw += xoffset;
+					pitch += yoffset;
+
+					if (pitch > 89.0f) {
+						pitch = 89.0f;
+					}
+					if (pitch < -89.0f) {
+						pitch = -89.0f;
+					}
+
+					tempvec.x = cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+					tempvec.y = sin(DirectX::XMConvertToRadians(pitch));
+					if (firstMouse)
+						tempvec.z = -1.f;
+					else 
+						tempvec.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+
+					direction = XMLoadFloat4(&tempvec);
+					//XMVectorSetIntX(direction, cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch)));
+					//XMVectorSetIntY(direction, sin(DirectX::XMConvertToRadians(pitch)));
+					//XMVectorSetIntZ(direction,  sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch)));
+					//direction.x = cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+					//direction.y = sin(DirectX::XMConvertToRadians(pitch));
+					//direction.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+
+			 		finalDirection= XMVector3Normalize(direction);
+
+					XMStoreFloat4(&tempvec_2, finalDirection);
+
+					//mousex = XMVectorGetIntX(finalDirection);
+					//mousey = XMVectorGetIntY(finalDirection);
+					//mousez = XMVectorGetIntZ(finalDirection);
+					mousex = tempvec_2.x;
+					mousey = tempvec_2.y;
+					mousez = tempvec_2.z;
+
+				}
+				break;
+			default:
+				break;
+			}
+			
+			app.Update(movement, mousex, mousey, mousez);
 			app.Render();
 		}
 

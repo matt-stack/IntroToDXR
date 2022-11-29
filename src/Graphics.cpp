@@ -31,6 +31,8 @@
 #include "Graphics.h"
 #include "Utils.h"
 
+#include <iostream>
+
 using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
@@ -193,10 +195,58 @@ void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &mo
 	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
 }
 
+void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model) 
+{
+	// Create the vertex buffer resource
+	D3D12BufferCreateInfo info(((UINT)model.vertices.size() * sizeof(VertexNorms)), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+	Create_Buffer(d3d, info, &resources.vertexBuffer);
+#if NAME_D3D_RESOURCES
+	resources.vertexBuffer->SetName(L"Vertex Buffer");
+#endif
+
+	// Copy the vertex data to the vertex buffer
+	UINT8* pVertexDataBegin;
+	D3D12_RANGE readRange = {};
+	HRESULT hr = resources.vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+	Utils::Validate(hr, L"Error: failed to map vertex buffer!");
+
+	memcpy(pVertexDataBegin, model.vertices.data(), info.size);
+	resources.vertexBuffer->Unmap(0, nullptr);
+
+	// Initialize the vertex buffer view
+	resources.vertexBufferView.BufferLocation = resources.vertexBuffer->GetGPUVirtualAddress();
+	resources.vertexBufferView.StrideInBytes = sizeof(VertexNorms);
+	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
+}
+
 /**
 * Create the index buffer.
 */
 void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &model) 
+{
+	// Create the index buffer resource
+	D3D12BufferCreateInfo info((UINT)model.indices.size() * sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+	Create_Buffer(d3d, info, &resources.indexBuffer);
+#if NAME_D3D_RESOURCES
+	resources.indexBuffer->SetName(L"Index Buffer");
+#endif
+
+	// Copy the index data to the index buffer
+	UINT8* pIndexDataBegin;
+	D3D12_RANGE readRange = {};
+	HRESULT hr = resources.indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
+	Utils::Validate(hr, L"Error: failed to map index buffer!");
+
+	memcpy(pIndexDataBegin, model.indices.data(), info.size);
+	resources.indexBuffer->Unmap(0, nullptr);
+
+	// Initialize the index buffer view
+	resources.indexBufferView.BufferLocation = resources.indexBuffer->GetGPUVirtualAddress();
+	resources.indexBufferView.SizeInBytes = static_cast<UINT>(info.size);
+	resources.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+}
+
+void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model) 
 {
 	// Create the index buffer resource
 	D3D12BufferCreateInfo info((UINT)model.indices.size() * sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -314,37 +364,140 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources)
 /**
 * Update the view constant buffer.
 */
-void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources) 
+
+XMFLOAT3 multiply(const XMFLOAT3& src, float mul) {
+	XMFLOAT3 ret_float{};
+	ret_float.x = src.x * mul;
+	ret_float.y = src.y * mul;
+	ret_float.z = src.z * mul;
+
+	return ret_float;
+}
+
+template <typename T>
+//inline void subtract(XMFLOAT3& src, XMFLOAT3 other) {
+inline void subtract(XMFLOAT3& src, T other) {
+
+	src.x -= other.x;
+	src.y -= other.y;
+	src.z -= other.z;
+}
+
+inline void add(XMFLOAT3& src, XMFLOAT3 other) {
+
+	src.x += other.x;
+	src.y += other.y;
+	src.z += other.z;
+}
+
+
+void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement, float mousex, float mousey, float mousez) 
 {
-	const float rotationSpeed = 0.005f;
+	const float rotationSpeed = 0.00005f;
 	XMMATRIX view, invView;
 	XMFLOAT3 eye, focus, up;
 	float aspect, fov;
 
-	resources.eyeAngle.x += rotationSpeed;
+	XMFLOAT3 temp;
+	XMFLOAT4 final_move;
+	XMVECTOR temp_vec_1;
+	XMVECTOR temp_vec_2;
 
-#if _DEBUG
-	float x = 2.f * cosf(resources.eyeAngle.x);
-	float y = 0.f;
-	float z = 2.25f + 2.f * sinf(resources.eyeAngle.x);
-
-	focus = XMFLOAT3(0.f, 0.f, 0.f);
-#else
-	float x = 8.f * cosf(resources.eyeAngle.x);
-	float y = 1.5f + 1.5f * cosf(resources.eyeAngle.x);
-	float z = 8.f + 2.25f * sinf(resources.eyeAngle.x);
-	focus = XMFLOAT3(0.f, 1.75f, 0.f);
-#endif
-
-	eye = XMFLOAT3(x, y, z);
+//	resources.eyeAngle.x += rotationSpeed;
 	up = XMFLOAT3(0.f, 1.f, 0.f);
+	auto cameraUp = XMLoadFloat3(&up);
+
+	if (mousey != 0 || mousex != 0) {
+
+		//focus = XMFLOAT3(mousex, mousey, mousez);
+		//focus = XMFLOAT3(mousex, mousey, mousez + -90.f);
+		focus = XMFLOAT3(mousex, mousey, mousez);
+	}
+/*
+	if (movement == 6) resources.eyePosition.y -= 0.05; // e
+	if (movement == 5) resources.eyePosition.y += 0.05; // q
+	if (movement == 4) resources.eyePosition.z -= 0.05; // w
+	if (movement == 3) resources.eyePosition.x += 0.05; // a
+	if (movement == 2) resources.eyePosition.z += 0.05; // s
+	if (movement == 1) resources.eyePosition.x -= 0.05; // d
+	if (movement == 0); // d
+	*/
+
+	
+
+	if (movement == 6) resources.eyePosition.y -= 0.05; // e
+	if (movement == 5) resources.eyePosition.y += 0.05; // q
+	if (movement == 4) {
+		temp = multiply(focus, 0.05f);
+		//subtract(resources.eyePosition, temp);
+		add(resources.eyePosition, temp);
+
+		//resources.eyePosition = resources.eyePosition - temp; // w
+	}
+	if (movement == 3) { // a
+
+		temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
+		temp_vec_2 = XMLoadFloat3(&focus);
+
+		XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+
+		XMStoreFloat4(&final_move, cross);
+		XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
+		temp = multiply(final_temp, 0.05f);
+		add(resources.eyePosition, temp);
+	}
+	if (movement == 2) {// s 
+
+		temp = multiply(focus, 0.05f);
+		subtract(resources.eyePosition, temp);
+		//add(resources.eyePosition, temp);
+	}
+	if (movement == 1) {// d
+		temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
+		temp_vec_2 = XMLoadFloat3(&focus);
+
+		XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+
+		XMStoreFloat4(&final_move, cross);
+		XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
+		temp = multiply(final_temp, 0.05f);
+		subtract(resources.eyePosition, temp);
+	}
+	if (movement == 0); // d
+
+	float x = 2.f + resources.eyePosition.x;
+	float y = 0.f + resources.eyePosition.y;
+	float z = 2.25f + 2.f + resources.eyePosition.z;
+
+//	focus = XMFLOAT3(0.f, 0.f, -1.f);
+	resources.eyeAngle.x = 1.f;
+	resources.eyeAngle.y = 0.f;
+	//focus = XMFLOAT3(resources.eyeAngle.x + mousex, resources.eyeAngle.y + mousey, -1.f);
+//	if (mousey != 0 || mousex != 0) {
+
+		//focus = XMFLOAT3(mousex, mousey, mousez);
+		//focus = XMFLOAT3(mousex, mousey, mousez + -90.f);
+//		focus = XMFLOAT3(mousex, mousey, mousez);
+//	}
+
+
+	//eye = XMFLOAT3(x, y, z);
+	eye = XMFLOAT3(x, y, z);
+	//up = XMFLOAT3(0.f, 1.f, 0.f);
 
 	aspect = (float)d3d.width / (float)d3d.height;
 	fov = 65.f * (XM_PI / 180.f);							// convert to radians
 
-	resources.rotationOffset += rotationSpeed;
+//	resources.rotationOffset += rotationSpeed;
 
-	view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&focus), XMLoadFloat3(&up));
+	auto cameraPos = XMLoadFloat3(&eye);
+	auto cameraFront = XMLoadFloat3(&focus);
+//	auto cameraUp = XMLoadFloat3(&up);
+
+	//view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&focus), XMLoadFloat3(&up));
+	//view = XMMatrixLookToLH(XMLoadFloat3(&eye), XMLoadFloat3(&focus), XMLoadFloat3(&up));
+	view = XMMatrixLookAtLH(cameraPos, cameraPos + cameraFront, cameraUp);
+		// make this a lookat
 	invView = XMMatrixInverse(NULL, view);
 
 	resources.viewCBData.view = XMMatrixTranspose(invView);
@@ -839,6 +992,70 @@ void Create_Bottom_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &re
 	d3d.cmdList->ResourceBarrier(1, &uavBarrier);
 }
 
+
+void Create_Bottom_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, ModelNorms &model) 
+{
+	// Describe the geometry that goes in the bottom acceleration structure(s)
+	D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc;
+	geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
+	geometryDesc.Triangles.VertexBuffer.StartAddress = resources.vertexBuffer->GetGPUVirtualAddress();
+	geometryDesc.Triangles.VertexBuffer.StrideInBytes = resources.vertexBufferView.StrideInBytes;
+	geometryDesc.Triangles.VertexCount = static_cast<UINT>(model.vertices.size());
+	geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
+	geometryDesc.Triangles.IndexBuffer = resources.indexBuffer->GetGPUVirtualAddress();
+	geometryDesc.Triangles.IndexFormat = resources.indexBufferView.Format;
+	geometryDesc.Triangles.IndexCount = static_cast<UINT>(model.indices.size());
+	geometryDesc.Triangles.Transform3x4 = 0;
+	geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+	
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
+
+	// Get the size requirements for the BLAS buffers
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS ASInputs = {};
+	ASInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
+	ASInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;	
+	ASInputs.pGeometryDescs = &geometryDesc;
+	ASInputs.NumDescs = 1;
+	ASInputs.Flags = buildFlags;
+
+	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO ASPreBuildInfo = {};
+	d3d.device->GetRaytracingAccelerationStructurePrebuildInfo(&ASInputs, &ASPreBuildInfo);
+
+	ASPreBuildInfo.ScratchDataSizeInBytes = ALIGN(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, ASPreBuildInfo.ScratchDataSizeInBytes);
+	ASPreBuildInfo.ResultDataMaxSizeInBytes = ALIGN(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, ASPreBuildInfo.ResultDataMaxSizeInBytes);
+
+	// Create the BLAS scratch buffer
+	D3D12BufferCreateInfo bufferInfo(ASPreBuildInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	bufferInfo.alignment = max(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
+	D3DResources::Create_Buffer(d3d, bufferInfo, &dxr.BLAS.pScratch);
+#if NAME_D3D_RESOURCES
+	dxr.BLAS.pScratch->SetName(L"DXR BLAS Scratch");
+#endif
+
+	// Create the BLAS buffer
+	bufferInfo.size = ASPreBuildInfo.ResultDataMaxSizeInBytes;
+	bufferInfo.state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
+	D3DResources::Create_Buffer(d3d, bufferInfo, &dxr.BLAS.pResult);
+#if NAME_D3D_RESOURCES
+	dxr.BLAS.pResult->SetName(L"DXR BLAS");
+#endif
+
+	// Describe and build the bottom level acceleration structure
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
+	buildDesc.Inputs = ASInputs;	
+	buildDesc.ScratchAccelerationStructureData = dxr.BLAS.pScratch->GetGPUVirtualAddress();
+	buildDesc.DestAccelerationStructureData = dxr.BLAS.pResult->GetGPUVirtualAddress();
+
+	d3d.cmdList->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
+
+	// Wait for the BLAS build to complete
+	D3D12_RESOURCE_BARRIER uavBarrier;
+	uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+	uavBarrier.UAV.pResource = dxr.BLAS.pResult;
+	uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+	d3d.cmdList->ResourceBarrier(1, &uavBarrier);
+}
+
 /**
 * Create the top level acceleration structure and its associated buffers.
 */
@@ -1222,6 +1439,103 @@ void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 * Create the DXR descriptor heap for CBVs, SRVs, and the output UAV.
 */
 void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const Model &model)
+{
+	// Describe the CBV/SRV/UAV heap
+	// Need 7 entries:
+	// 1 CBV for the ViewCB
+	// 1 CBV for the MaterialCB
+	// 1 UAV for the RT output
+	// 1 SRV for the Scene BVH
+	// 1 SRV for the index buffer
+	// 1 SRV for the vertex buffer
+	// 1 SRV for the texture
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = 7;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	// Create the descriptor heap
+	HRESULT hr = d3d.device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&resources.descriptorHeap));
+	Utils::Validate(hr, L"Error: failed to create DXR CBV/SRV/UAV descriptor heap!");
+
+	// Get the descriptor heap handle and increment size
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = resources.descriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	UINT handleIncrement = d3d.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+#if NAME_D3D_RESOURCES
+	resources.descriptorHeap->SetName(L"DXR Descriptor Heap");
+#endif
+
+	// Create the ViewCB CBV
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.viewCBData));
+	cbvDesc.BufferLocation = resources.viewCB->GetGPUVirtualAddress();
+
+	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
+
+	// Create the MaterialCB CBV
+	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.materialCBData));
+	cbvDesc.BufferLocation = resources.materialCB->GetGPUVirtualAddress();
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
+
+	// Create the DXR output buffer UAV
+	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateUnorderedAccessView(resources.DXROutput, nullptr, &uavDesc, handle);
+
+	// Create the DXR Top Level Acceleration Structure SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.RaytracingAccelerationStructure.Location = dxr.TLAS.pResult->GetGPUVirtualAddress();
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateShaderResourceView(nullptr, &srvDesc, handle);
+
+	// Create the index buffer SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC indexSRVDesc;
+	indexSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	indexSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	indexSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+	indexSRVDesc.Buffer.StructureByteStride = 0;
+	indexSRVDesc.Buffer.FirstElement = 0;
+	indexSRVDesc.Buffer.NumElements = (static_cast<UINT>(model.indices.size()) * sizeof(UINT)) / sizeof(float);
+	indexSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateShaderResourceView(resources.indexBuffer, &indexSRVDesc, handle);
+
+	// Create the vertex buffer SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC vertexSRVDesc;
+	vertexSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	vertexSRVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	vertexSRVDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_RAW;
+	vertexSRVDesc.Buffer.StructureByteStride = 0;
+	vertexSRVDesc.Buffer.FirstElement = 0;
+	vertexSRVDesc.Buffer.NumElements = (static_cast<UINT>(model.vertices.size()) * sizeof(Vertex)) / sizeof(float);
+	vertexSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateShaderResourceView(resources.vertexBuffer, &vertexSRVDesc, handle);
+
+	// Create the material texture SRV
+	D3D12_SHADER_RESOURCE_VIEW_DESC textureSRVDesc = {};
+	textureSRVDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	textureSRVDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	textureSRVDesc.Texture2D.MipLevels = 1;
+	textureSRVDesc.Texture2D.MostDetailedMip = 0;
+	textureSRVDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateShaderResourceView(resources.texture, &textureSRVDesc, handle);
+}
+
+
+void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const ModelNorms &model)
 {
 	// Describe the CBV/SRV/UAV heap
 	// Need 7 entries:

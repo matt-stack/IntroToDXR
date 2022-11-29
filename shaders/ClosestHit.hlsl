@@ -33,11 +33,25 @@
 void ClosestHit(inout HitInfo payload, Attributes attrib)
 {
 	uint triangleIndex = PrimitiveIndex();
-	float3 barycentrics = float3((1.0f - attrib.uv.x - attrib.uv.y), attrib.uv.x, attrib.uv.y);
+	float3 barycentrics = float3((1.0f - attrib.uv.x - attrib.uv.y), attrib.uv.x, attrib.uv.y); // w, u, v 
 	VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
 
-	int2 coord = floor(vertex.uv * textureResolution.x);
-	float3 color = albedo.Load(int3(coord, 0)).rgb;
+	float3 worldRayHit = worldHitPosition();
+
+//	uint3 vertices = getIndicies(triangleIndex);
+
+
+
+	float3 vertexNormals = {
+		0, 0, 0
+	};
+
+//	float worldNormal = mul(attrib.normal, (float3x3)ObjectToWorld3x4());
+
+//	int2 coord = floor(vertex.uv * textureResolution.x);
+//	float3 color = albedo.Load(int3(coord, 0)).rgb;
+	int i = 0;
+		float3 color = { attrib.uv.x , attrib.uv.y, 211 };
 
 	payload.ShadedColorAndHitT = float4(color, RayTCurrent());
 }

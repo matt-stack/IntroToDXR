@@ -40,10 +40,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         case WM_PAINT:
             BeginPaint( hWnd, &ps );
             EndPaint( hWnd, &ps );
+
             break;
-		case WM_KEYUP:
-			if (wParam == VK_ESCAPE) PostQuitMessage(0);
-			break;
+		// case WM_KEYUP:
+		//	if (wParam == VK_ESCAPE) PostQuitMessage(0);
+		////	if (wParam == 0x57) PostMessageA(hWnd, message, wParam, lParam); // W
+		//	if (wParam == 0x41) PostQuitMessage(0); // A
+		//	if (wParam == 0x53) PostQuitMessage(0); // S
+		//	if (wParam == 0x44) PostQuitMessage(0); // D
+
+		//	if (wParam == 0x45) PostQuitMessage(0); // E
+		//	if (wParam == 0x51) PostQuitMessage(0); // Q
+		//	break;
         case WM_DESTROY:
             PostQuitMessage( 0 );
             break;
@@ -62,6 +70,7 @@ namespace Window
 HRESULT Create(LONG width, LONG height, HINSTANCE& instance, HWND &window, LPCWSTR title) 
 {
 	// Register the window class
+	// https://learn.microsoft.com/en-us/windows/win32/learnwin32/creating-a-window
 	WNDCLASSEX wcex;
 	wcex.cbSize = sizeof(WNDCLASSEX);
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
