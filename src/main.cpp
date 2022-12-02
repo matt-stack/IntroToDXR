@@ -280,20 +280,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 						tempvec.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
 
 					direction = XMLoadFloat4(&tempvec);
-					//XMVectorSetIntX(direction, cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch)));
-					//XMVectorSetIntY(direction, sin(DirectX::XMConvertToRadians(pitch)));
-					//XMVectorSetIntZ(direction,  sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch)));
-					//direction.x = cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
-					//direction.y = sin(DirectX::XMConvertToRadians(pitch));
-					//direction.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
 
 			 		finalDirection= XMVector3Normalize(direction);
 
 					XMStoreFloat4(&tempvec_2, finalDirection);
 
-					//mousex = XMVectorGetIntX(finalDirection);
-					//mousey = XMVectorGetIntY(finalDirection);
-					//mousez = XMVectorGetIntZ(finalDirection);
 					mousex = tempvec_2.x;
 					mousey = tempvec_2.y;
 					mousez = tempvec_2.z;

@@ -68,6 +68,13 @@ struct VertexAttributes
 	float2 uv;
 };
 
+struct TriangleVertex 
+{
+	float3 firstVert;
+	float3 secondVert;
+	float3 thirdVert;
+};
+
 uint3 GetIndices(uint triangleIndex)
 {
 	uint baseIndex = (triangleIndex * 3);
@@ -76,6 +83,7 @@ uint3 GetIndices(uint triangleIndex)
 }
 
 VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
+//VertexAttributes GetVertexAttributesWithBarycentrics(uint triangleIndex, float3 barycentrics)
 {
 	uint3 indices = GetIndices(triangleIndex);
 	VertexAttributes v;
@@ -93,9 +101,41 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 	return v;
 }
 
+
+TriangleVertex GetVertexPos(uint triangleIndex)
+{
+	uint3 indices = GetIndices(triangleIndex);
+	TriangleVertex v;
+
+	//for (uint i = 0; i < 3; i++)
+	//{
+		int address = (indices[0] * 5) * 4;
+		v.firstVert = asfloat(vertices.Load3(address));
+		address = (indices[1] * 5) * 4;
+		v.secondVert = asfloat(vertices.Load3(address));
+		address = (indices[2] * 5) * 4;
+		v.thirdVert = asfloat(vertices.Load3(address));
+		//address += (3 * 4);
+		//v.uv += asfloat(vertices.Load2(address)) * barycentrics[i];
+	//}
+
+	return v;
+}
+
 float3 worldHitPosition() {
 
 	float3 worldRayHit = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 
 	return worldRayHit;
+}
+
+float3 CalculateSurfaceNormal(TriangleVertex tri) {
+	float3 u = tri.secondVert - tri.firstVert;
+	float3 v = tri.thirdVert - tri.firstVert;
+
+	float3 normal = normalize(cross(u, v));
+	//float3 normal = cross(u, v);
+//	float3 normal = cross(v, u);
+
+	return normal;
 }

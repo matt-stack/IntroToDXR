@@ -408,31 +408,13 @@ void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement,
 	auto cameraUp = XMLoadFloat3(&up);
 
 	if (mousey != 0 || mousex != 0) {
-
-		//focus = XMFLOAT3(mousex, mousey, mousez);
-		//focus = XMFLOAT3(mousex, mousey, mousez + -90.f);
 		focus = XMFLOAT3(mousex, mousey, mousez);
 	}
-/*
-	if (movement == 6) resources.eyePosition.y -= 0.05; // e
-	if (movement == 5) resources.eyePosition.y += 0.05; // q
-	if (movement == 4) resources.eyePosition.z -= 0.05; // w
-	if (movement == 3) resources.eyePosition.x += 0.05; // a
-	if (movement == 2) resources.eyePosition.z += 0.05; // s
-	if (movement == 1) resources.eyePosition.x -= 0.05; // d
-	if (movement == 0); // d
-	*/
-
-	
-
 	if (movement == 6) resources.eyePosition.y -= 0.05; // e
 	if (movement == 5) resources.eyePosition.y += 0.05; // q
 	if (movement == 4) {
 		temp = multiply(focus, 0.05f);
-		//subtract(resources.eyePosition, temp);
 		add(resources.eyePosition, temp);
-
-		//resources.eyePosition = resources.eyePosition - temp; // w
 	}
 	if (movement == 3) { // a
 
@@ -450,7 +432,6 @@ void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement,
 
 		temp = multiply(focus, 0.05f);
 		subtract(resources.eyePosition, temp);
-		//add(resources.eyePosition, temp);
 	}
 	if (movement == 1) {// d
 		temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
@@ -469,33 +450,17 @@ void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement,
 	float y = 0.f + resources.eyePosition.y;
 	float z = 2.25f + 2.f + resources.eyePosition.z;
 
-//	focus = XMFLOAT3(0.f, 0.f, -1.f);
 	resources.eyeAngle.x = 1.f;
 	resources.eyeAngle.y = 0.f;
-	//focus = XMFLOAT3(resources.eyeAngle.x + mousex, resources.eyeAngle.y + mousey, -1.f);
-//	if (mousey != 0 || mousex != 0) {
 
-		//focus = XMFLOAT3(mousex, mousey, mousez);
-		//focus = XMFLOAT3(mousex, mousey, mousez + -90.f);
-//		focus = XMFLOAT3(mousex, mousey, mousez);
-//	}
-
-
-	//eye = XMFLOAT3(x, y, z);
 	eye = XMFLOAT3(x, y, z);
-	//up = XMFLOAT3(0.f, 1.f, 0.f);
 
 	aspect = (float)d3d.width / (float)d3d.height;
 	fov = 65.f * (XM_PI / 180.f);							// convert to radians
 
-//	resources.rotationOffset += rotationSpeed;
-
 	auto cameraPos = XMLoadFloat3(&eye);
 	auto cameraFront = XMLoadFloat3(&focus);
-//	auto cameraUp = XMLoadFloat3(&up);
 
-	//view = XMMatrixLookAtLH(XMLoadFloat3(&eye), XMLoadFloat3(&focus), XMLoadFloat3(&up));
-	//view = XMMatrixLookToLH(XMLoadFloat3(&eye), XMLoadFloat3(&focus), XMLoadFloat3(&up));
 	view = XMMatrixLookAtLH(cameraPos, cameraPos + cameraFront, cameraUp);
 		// make this a lookat
 	invView = XMMatrixInverse(NULL, view);
