@@ -28,6 +28,7 @@
 #pragma once
 
 #include "Structures.h"
+#include <directxmath.h>
 
 namespace Utils
 {
@@ -36,6 +37,8 @@ namespace Utils
 	std::vector<char> ReadFile(const std::string &filename);
 
 	void LoadModel(std::string filepath, Model &model, Material &material);
+
+	void CustomModel(ModelNorms &model);
 
 	void Validate(HRESULT hr, LPWSTR message);
 

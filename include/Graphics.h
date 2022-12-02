@@ -50,14 +50,16 @@ namespace D3DResources
 	void Create_Buffer(D3D12Global &d3d, D3D12BufferCreateInfo &info, ID3D12Resource** ppResource);
 	void Create_Texture(D3D12Global &d3d, D3D12Resources &resources, Material &material);
 	void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &model);
+	void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model);
 	void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &model);
+	void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model);
 	void Create_Constant_Buffer(D3D12Global &d3d, ID3D12Resource** buffer, UINT64 size);
 	void Create_BackBuffer_RTV(D3D12Global &d3d, D3D12Resources &resources);
 	void Create_View_CB(D3D12Global &d3d, D3D12Resources &resources);
 	void Create_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const Material &material);
 	void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources);
 
-	void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources);
+	void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement, float mousex, float mousey, float mousez);
 
 	void Upload_Texture(D3D12Global &d3d, ID3D12Resource* destResource, ID3D12Resource* srcResource, const TextureInfo &texture);
 
@@ -96,6 +98,7 @@ namespace D3D12
 namespace DXR
 {	
 	void Create_Bottom_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, Model &model);
+	void Create_Bottom_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, ModelNorms &model);
 	void Create_Top_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);
 	void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler);
 	void Create_Miss_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler);
@@ -103,6 +106,7 @@ namespace DXR
 	void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr);
 	void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);
 	void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const Model &model);
+	void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const ModelNorms &model);
 	void Create_DXR_Output(D3D12Global &d3d, D3D12Resources &resources);
 
 	void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);

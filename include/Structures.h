@@ -61,6 +61,7 @@ struct ConfigInfo
 struct Vertex
 {
 	DirectX::XMFLOAT3 position;
+	DirectX::XMFLOAT3 normal;
 	DirectX::XMFLOAT2 uv;
 
 	bool operator==(const Vertex &v) const 
@@ -81,6 +82,32 @@ struct Vertex
 	}
 };
 
+struct VertexNorms
+{
+	DirectX::XMFLOAT3 position;
+	DirectX::XMFLOAT3 normal;
+//	DirectX::XMFLOAT2 uv;
+
+	bool operator==(const VertexNorms &v) const 
+	{
+		if (CompareVector3WithEpsilon(position, v.position)) 
+		{
+			//if (CompareVector2WithEpsilon(uv, v.uv)) return true;
+			if (CompareVector3WithEpsilon(normal, v.normal)) return true;
+			return true;
+		}
+		return false;
+	}
+
+	VertexNorms& operator=(const VertexNorms& v) 
+	{
+		position = v.position;
+		normal = v.normal;
+		//uv = v.uv;
+		return *this;
+	}
+};
+
 struct Material 
 {
 	std::string name = "defaultMaterial";
@@ -91,6 +118,12 @@ struct Material
 struct Model
 {
 	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
+};
+
+struct ModelNorms
+{
+	std::vector<VertexNorms> vertices;
 	std::vector<uint32_t> indices;
 };
 
