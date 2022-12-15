@@ -94,7 +94,7 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 	{
 		int address = (indices[i] * 5) * 4;
 		v.position += asfloat(vertices.Load3(address)) * barycentrics[i];
-		address += (3 * 4);
+		address += (3 * 4); // this wont work anymore for uv because we swapped the Vertex structure
 		v.uv += asfloat(vertices.Load2(address)) * barycentrics[i];
 	}
 
@@ -103,23 +103,20 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 
 
 TriangleVertex GetVertexPos(uint triangleIndex)
+// visualize vertex normals
 {
 	uint3 indices = GetIndices(triangleIndex);
 	TriangleVertex v;
 
-	//for (uint i = 0; i < 3; i++)
-	//{
-		int address = (indices[0] * 5) * 4;
-		v.firstVert = asfloat(vertices.Load3(address));
-		address = (indices[1] * 5) * 4;
-		v.secondVert = asfloat(vertices.Load3(address));
-		address = (indices[2] * 5) * 4;
-		v.thirdVert = asfloat(vertices.Load3(address));
-		//address += (3 * 4);
-		//v.uv += asfloat(vertices.Load2(address)) * barycentrics[i];
-	//}
+	int testing_address1 = indices[0] * (8 * 4) + (3*4);
+	int testing_address2 = indices[1] * (8 * 4) + (3*4);
+	int testing_address3 = indices[2] * (8 * 4) + (3*4);
+	TriangleVertex vn;
+	vn.firstVert =  asfloat(vertices.Load3(testing_address1));
+	vn.secondVert = asfloat(vertices.Load3(testing_address2));
+	vn.thirdVert =  asfloat(vertices.Load3(testing_address3));
 
-	return v;
+	return vn;
 }
 
 float3 worldHitPosition() {

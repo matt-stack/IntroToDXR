@@ -33,6 +33,11 @@
 
 #include <iostream>
 
+// for PIX
+#include <filesystem>
+#include <shlobj.h>
+#include <fstream>
+
 using namespace std;
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
@@ -191,7 +196,7 @@ void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &mo
 
 	// Initialize the vertex buffer view
 	resources.vertexBufferView.BufferLocation = resources.vertexBuffer->GetGPUVirtualAddress();
-	resources.vertexBufferView.StrideInBytes = sizeof(Vertex);
+	resources.vertexBufferView.StrideInBytes = sizeof(Vertex); //32 bytes
 	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
 }
 
@@ -601,13 +606,54 @@ void Destroy(D3D12ShaderCompilerInfo &shaderCompiler)
 
 namespace D3D12
 {
+/*Load PIX if PROFILE*/
+
+static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
+{
+	LPWSTR programFilesPath = nullptr;
+	SHGetKnownFolderPath(FOLDERID_ProgramFiles, KF_FLAG_DEFAULT, NULL, &programFilesPath);
+
+	std::filesystem::path pixInstallationPath = programFilesPath;
+	pixInstallationPath /= "Microsoft PIX";
+
+	std::wstring newestVersionFound;
+
+	for (auto const& directory_entry : std::filesystem::directory_iterator(pixInstallationPath))
+	{
+		if (directory_entry.is_directory())
+		{
+			if (newestVersionFound.empty() || newestVersionFound < directory_entry.path().filename().c_str())
+			{
+				newestVersionFound = directory_entry.path().filename().c_str();
+			}
+		}
+	}
+
+	if (newestVersionFound.empty())
+	{
+		// TODO: Error, no PIX installation found
+	}
+
+	return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
+}
+
+
+void Load_PIX() {
+	// Check to see if a copy of WinPixGpuCapturer.dll has already been injected into the application.
+	// This may happen if the application is launched through the PIX UI. 
+	if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+	{
+		LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+	}
+
+	}
 
 /**
 * Create the device.
 */
 void Create_Device(D3D12Global &d3d)
 {
-#if defined(_DEBUG)
+#if defined(_DEBUG) || defined(_PROFILE)
 	// Enable the D3D12 debug layer.
 	{
 		ID3D12Debug* debugController;
@@ -841,6 +887,7 @@ void WaitForGPU(D3D12Global &d3d)
 /**
 * Prepare to render the next frame.
 */
+// mstack next
 void MoveToNextFrame(D3D12Global &d3d) 
 {
 	// Schedule a Signal command in the queue

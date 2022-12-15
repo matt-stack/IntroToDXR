@@ -1,5 +1,6 @@
 # 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
 # File Created: 22.11.2016 00:04:47
+# from https://github.com/serhii-rieznik/raytracing-references/blob/main/cornellbox/cornellbox.obj
 
 mtllib cornellbox.mtl
 
@@ -25,7 +26,8 @@ vt 0.32937 0.66191 0.00000
 # 4 texture coords
 
 g ceiling_Mesh
-usemtl ceiling
+#usemtl white #for cornellbox_simple
+usemtl ceiling 
 s 1
 f 1/1/1 2/2/1 3/3/1 
 f 3/3/1 4/4/1 1/1/1 
@@ -51,6 +53,7 @@ vt 0.65751 0.33809 0.00000
 # 4 texture coords
 
 g floor_Mesh
+#usemtl white
 usemtl floor
 s 1
 f 5/5/2 6/6/2 7/7/2 
@@ -77,6 +80,7 @@ vt 0.32937 0.66623 0.00000
 # 4 texture coords
 
 g frontWall_Mesh
+#usemtl blue
 usemtl frontWall
 s 1
 f 9/9/3 10/10/3 11/11/3 
@@ -103,6 +107,7 @@ vt 0.65751 0.00995 0.00000
 # 4 texture coords
 
 g leftWall_Mesh
+#usemtl green
 usemtl leftWall
 s 1
 f 13/13/4 14/14/4 15/15/4 
@@ -155,6 +160,7 @@ vt 0.32937 0.00995 0.00000
 # 4 texture coords
 
 g rightWall_Mesh
+#usemtl red
 usemtl rightWall
 s 1
 f 21/21/6 22/22/6 23/23/6 
@@ -209,6 +215,7 @@ vt 0.10386 0.41338 0.00000
 # 24 texture coords
 
 g shortBox_Mesh
+#usemtl white
 usemtl shortBox
 s 1
 f 25/25/7 26/26/7 27/27/7 
@@ -273,6 +280,7 @@ vt 0.23276 0.01173 0.00000
 # 24 texture coords
 
 g tallBox_Mesh
+#usemtl white
 usemtl tallBox
 s 1
 f 33/49/12 34/50/12 35/51/12 

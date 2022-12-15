@@ -64,6 +64,9 @@ public:
 		D3DShaders::Init_Shader_Compiler(shaderCompiler);
 
 		// Initialize D3D12
+#ifdef _PROFILE
+	//	D3D12::Load_PIX();
+#endif
 		D3D12::Create_Device(d3d);
 		D3D12::Create_Command_Queue(d3d);
 		D3D12::Create_Command_Allocator(d3d);
