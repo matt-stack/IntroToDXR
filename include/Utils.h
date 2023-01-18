@@ -36,7 +36,8 @@ namespace Utils
 
 	std::vector<char> ReadFile(const std::string &filename);
 
-	void LoadModel(std::string filepath, Model &model, Material &material);
+	//void LoadModel(std::string filepath, Model &model, Material &material);
+	void LoadModel(std::string filepath, Model &model, Material &material, std::vector<MyMaterialCB>& materialVec);
 
 	void CustomModel(ModelNorms &model);
 

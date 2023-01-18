@@ -325,6 +325,7 @@ void Create_View_CB(D3D12Global &d3d, D3D12Resources &resources)
 	Utils::Validate(hr, L"Error: failed to map View constant buffer!");
 
 	memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
+	// mstack-plination copying the data from viewCBData to the start of the 
 }
 
 /**
@@ -345,8 +346,28 @@ void Create_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const Mater
 	memcpy(resources.materialCBStart, &resources.materialCBData, sizeof(resources.materialCBData));
 }
 
+
 /**
-* Create the RTV descriptor heap.
+* Create and initialize the material constant buffer.
+*/
+void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const std::vector<MyMaterialCB> &material_vec, int size) 
+{
+	Create_Constant_Buffer(d3d, &resources.myMaterialCB, sizeof(MyMaterialCB) * size );
+#if NAME_D3D_RESOURCES
+	resources.materialCB->SetName(L"My Material Constant Buffer");
+#endif
+
+	//resources.myMaterialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
+
+	HRESULT hr = resources.myMaterialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.myMaterialCBStart));
+	Utils::Validate(hr, L"Error: failed to map My Material constant buffer!");
+
+	//memcpy(resources.myMaterialCBStart, &resources.myMaterialCBData, sizeof(resources.materialCBData));
+	memcpy(resources.myMaterialCBStart, material_vec.data(), sizeof(MyMaterialCB) * size);
+}
+
+/**
+* Create the RTV descriptor heap. Render Target View, non-shader visable
 */
 void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources)
 {
@@ -474,6 +495,8 @@ void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement,
 	resources.viewCBData.viewOriginAndTanHalfFovY = XMFLOAT4(eye.x, eye.y, eye.z, tanf(fov * 0.5f));
 	resources.viewCBData.resolution = XMFLOAT2((float)d3d.width, (float)d3d.height);
 	memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
+	// mstack-plination store back the new data of viewCBData into the start of the viewCBStart, which is 
+	// techincally GPU memory
 }
 
 /**
@@ -607,7 +630,7 @@ void Destroy(D3D12ShaderCompilerInfo &shaderCompiler)
 namespace D3D12
 {
 /*Load PIX if PROFILE*/
-
+/*
 static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 {
 	LPWSTR programFilesPath = nullptr;
@@ -636,14 +659,14 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 
 	return pixInstallationPath / newestVersionFound / L"WinPixGpuCapturer.dll";
 }
-
+*/
 
 void Load_PIX() {
 	// Check to see if a copy of WinPixGpuCapturer.dll has already been injected into the application.
 	// This may happen if the application is launched through the PIX UI. 
 	if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
 	{
-		LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
+	//	LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
 	}
 
 	}
@@ -1431,6 +1454,10 @@ void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 
 	// Set the root parameter data. Point to start of descriptor heap.
 	*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	// Descriptor tables don’t need to be created or destroyed at the API or DDI – 
+	// they are merely identified to drivers as an offset and size out of a heap whenever referenced
+	// (the size is not strictly necessary but useful for validation at least).
+	// https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html#descriptor-tables
 
 	// Shader Record 1 - Miss program (no local root arguments to set)
 	pData += dxr.shaderTableRecordSize;
@@ -1477,10 +1504,11 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	resources.descriptorHeap->SetName(L"DXR Descriptor Heap");
 #endif
 
-	// Create the ViewCB CBV
+	// Create the ViewCB CBV- this is creating a descriptor
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
 	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.viewCBData));
 	cbvDesc.BufferLocation = resources.viewCB->GetGPUVirtualAddress();
+	// mstack-plination why is this getting the GPU virtual address first thing?
 
 	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
 

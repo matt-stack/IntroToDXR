@@ -62,6 +62,7 @@ struct Vertex
 {
 	DirectX::XMFLOAT3 position;
 	DirectX::XMFLOAT3 normal;
+	DirectX::XMINT2 materialId;
 	DirectX::XMFLOAT2 uv;
 
 	bool operator==(const Vertex &v) const 
@@ -108,6 +109,17 @@ struct VertexNorms
 	}
 };
 
+
+struct Material_Info 
+{
+	DirectX::XMFLOAT3 albedo;
+};
+
+struct Material_Def 
+{
+	std::vector<Material_Info> info;
+};
+
 struct Material 
 {
 	std::string name = "defaultMaterial";
@@ -146,6 +158,12 @@ struct ViewCB
 	DirectX::XMMATRIX view = DirectX::XMMatrixIdentity();
 	DirectX::XMFLOAT4 viewOriginAndTanHalfFovY = DirectX::XMFLOAT4(0, 0.f, 0.f, 0.f);
 	DirectX::XMFLOAT2 resolution = DirectX::XMFLOAT2(1280, 720);
+};
+
+// mstack version 
+struct MyMaterialCB
+{
+	DirectX::XMFLOAT3 diffuse = {0, 0, 0}; //RGB
 };
 
 //--------------------------------------------------------------------------------------
@@ -224,6 +242,10 @@ struct D3D12Resources
 	ID3D12Resource*									materialCB = nullptr;
 	MaterialCB										materialCBData;	
 	UINT8*											materialCBStart = nullptr;
+
+	ID3D12Resource*	myMaterialCB = nullptr;
+	MyMaterialCB myMaterialCBData;
+	UINT* myMaterialCBStart = nullptr;
 
 	ID3D12DescriptorHeap*							rtvHeap = nullptr;
 	ID3D12DescriptorHeap*							descriptorHeap = nullptr;

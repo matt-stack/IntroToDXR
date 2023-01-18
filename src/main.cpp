@@ -57,7 +57,8 @@ public:
 		d3d.vsync = config.vsync;
 
 		// Load a model
-		Utils::LoadModel(config.model, model, material); // config.model is a string, model is a Model
+		//Utils::LoadModel(config.model, model, material); // config.model is a string, model is a Model
+		Utils::LoadModel(config.model, model, material, myMaterialVector); // config.model is a string, model is a Model
 	//	Utils::CustomModel(model); // config.model is a string, model is a Model
 
 		// Initialize the shader compiler
@@ -83,6 +84,7 @@ public:
 //		D3DResources::Create_Texture(d3d, resources, material);
 		D3DResources::Create_View_CB(d3d, resources);
 		D3DResources::Create_Material_CB(d3d, resources, material);
+		D3DResources::Create_My_Material_CB(d3d, resources, myMaterialVector, myMaterialVector.size());
 		
 		// Create DXR specific resources
 		//DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
@@ -140,6 +142,8 @@ private:
 	Model model;
 //	ModelNorms model;
 	Material material;
+
+	std::vector<MyMaterialCB> myMaterialVector;
 
 	DXRGlobal dxr = {};
 	D3D12Global d3d = {};

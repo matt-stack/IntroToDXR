@@ -38,8 +38,8 @@ struct Attributes
 };
 
 // ---[ Constant Buffers ]---
-
-cbuffer ViewCB : register(b0)
+// https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-variable-register
+cbuffer ViewCB : register(b0) // b means constant buffer
 {
 	matrix view;
 	float4 viewOriginAndTanHalfFovY;

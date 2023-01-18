@@ -186,7 +186,8 @@ vector<char> ReadFile(const string &filename)
 // Model Loading
 //--------------------------------------------------------------------------------------
 
-void LoadModel(string filepath, Model &model, Material &material) 
+//void LoadModel(string filepath, Model &model, Material &material)
+void LoadModel(string filepath, Model &model, Material &material, std::vector<MyMaterialCB>& materialVec) 
 {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
@@ -204,6 +205,22 @@ void LoadModel(string filepath, Model &model, Material &material)
 	material.name = materials[0].name;
 	material.texturePath = materials[0].diffuse_texname;
 
+	// create a std::vector of My_Material somewhere and populate it.
+	// then create a CBV, and map memcpy over
+
+	for (auto it : materials) 
+	{
+		float temp[3] {};
+		temp[0] = it.diffuse[0];
+		temp[1] = it.diffuse[1];
+		temp[2] = it.diffuse[2];
+		
+		MyMaterialCB temp_MMCB {};
+		DirectX::XMFLOAT3 temp_DF = { it.diffuse[0], it.diffuse[1], it.diffuse[2] };
+		temp_MMCB.diffuse = temp_DF;
+		materialVec.emplace_back(temp_MMCB);
+	}
+
 
 	printf("# of vertices  = %d\n", (int)(attrib.vertices.size()) / 3);
 	printf("# of normals   = %d\n", (int)(attrib.normals.size()) / 3);
@@ -211,10 +228,15 @@ void LoadModel(string filepath, Model &model, Material &material)
 	printf("# of materials = %d\n", (int)materials.size());
 	printf("# of shapes    = %d\n", (int)shapes.size());
 
+	 
+
 	// Parse the model and store the unique vertices
 	unordered_map<Vertex, uint32_t> uniqueVertices = {};
 	for (const auto &shape : shapes) 
 	{
+		int material_index = 0;
+		int material_offset = 0;
+		int get_material = 0;
 		for (const auto &index : shape.mesh.indices) 
 		{
 			Vertex vertex = {};
@@ -239,12 +261,17 @@ void LoadModel(string filepath, Model &model, Material &material)
 				1 - attrib.texcoords[2 * index.texcoord_index + 1]
 			};
 
-			vertex.color =
-			{
-			attrib.colors[3 * size_t(idx.vertex_index) + 0],
-			attrib.colors[3*size_t(idx.vertex_index)+1],
-			attrib.colors[3*size_t(idx.vertex_index)+2]
-			};
+			// add MartialID to Vertex struct,
+			// found out how to id the material for the index
+			// create CBV for Materials
+
+			if ((material_index % 3) == 0) { // new triangle, get material
+				get_material = shape.mesh.material_ids[material_offset];
+			}
+
+			vertex.materialId = { get_material, 0 };
+
+			material_index++;
 
 			// Fast find unique vertices using a hash
 			if (uniqueVertices.count(vertex) == 0) 

@@ -57,6 +57,7 @@ namespace D3DResources
 	void Create_BackBuffer_RTV(D3D12Global &d3d, D3D12Resources &resources);
 	void Create_View_CB(D3D12Global &d3d, D3D12Resources &resources);
 	void Create_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const Material &material);
+	void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const std::vector<MyMaterialCB> &material_vec, int size);
 	void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources);
 
 	void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement, float mousex, float mousey, float mousez);
@@ -76,6 +77,8 @@ namespace D3DShaders
 
 namespace D3D12
 {	
+	void Load_PIX();
+	static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17();
 	void Create_Device(D3D12Global &d3d);
 	void Create_CommandList(D3D12Global &d3d);
 	void Create_Command_Queue(D3D12Global &d3d);
