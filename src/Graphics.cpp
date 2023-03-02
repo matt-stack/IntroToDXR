@@ -359,11 +359,13 @@ void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const st
 
 	//resources.myMaterialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
 
+	resources.myMaterialCBDataSize = sizeof(MyMaterialCB) * size;
+
 	HRESULT hr = resources.myMaterialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.myMaterialCBStart));
 	Utils::Validate(hr, L"Error: failed to map My Material constant buffer!");
 
 	//memcpy(resources.myMaterialCBStart, &resources.myMaterialCBData, sizeof(resources.materialCBData));
-	memcpy(resources.myMaterialCBStart, material_vec.data(), sizeof(MyMaterialCB) * size);
+	memcpy(resources.myMaterialCBStart, material_vec.data(), resources.myMaterialCBDataSize);
 }
 
 /**
@@ -508,12 +510,15 @@ void Destroy(D3D12Resources &resources)
 	if (resources.viewCBStart) resources.viewCBStart = nullptr;
 	if (resources.materialCB) resources.materialCB->Unmap(0, nullptr);
 	if (resources.materialCBStart) resources.materialCBStart = nullptr;
+	if (resources.myMaterialCB) resources.myMaterialCB->Unmap(0, nullptr);
+	if (resources.myMaterialCBStart) resources.myMaterialCBStart = nullptr;
 
 	SAFE_RELEASE(resources.DXROutput);
 	SAFE_RELEASE(resources.vertexBuffer);
 	SAFE_RELEASE(resources.indexBuffer);
 	SAFE_RELEASE(resources.viewCB);
 	SAFE_RELEASE(resources.materialCB);
+	SAFE_RELEASE(resources.myMaterialCB);
 	SAFE_RELEASE(resources.rtvHeap);
 	SAFE_RELEASE(resources.descriptorHeap);
 	SAFE_RELEASE(resources.texture);
@@ -1483,6 +1488,7 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	// Need 7 entries:
 	// 1 CBV for the ViewCB
 	// 1 CBV for the MaterialCB
+	// NEW ADD 1 CBV for the MyMaterialCB, will be in b(2)?
 	// 1 UAV for the RT output
 	// 1 SRV for the Scene BVH
 	// 1 SRV for the index buffer
@@ -1519,6 +1525,14 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	handle.ptr += handleIncrement;
 	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
 
+	// NEW ADD for the MyMaterialCB
+/*
+	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, resources.myMaterialCBDataSize);
+	cbvDesc.BufferLocation = resources.myMaterialCB->GetGPUVirtualAddress();
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
+	*/
 	// Create the DXR output buffer UAV
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
@@ -1574,7 +1588,7 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	d3d.device->CreateShaderResourceView(resources.texture, &textureSRVDesc, handle);
 }
 
-
+// ignnore this one
 void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const ModelNorms &model)
 {
 	// Describe the CBV/SRV/UAV heap

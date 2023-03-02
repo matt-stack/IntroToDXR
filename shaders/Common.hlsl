@@ -51,6 +51,12 @@ cbuffer MaterialCB : register(b1)
 	float4 textureResolution;
 };
 
+
+//cbuffer MyMaterialCB : register(b2)
+//{
+//	float3 materials[9];
+//};
+
 // ---[ Resources ]---
 
 RWTexture2D<float4> RTOutput				: register(u0);
@@ -108,9 +114,9 @@ TriangleVertex GetVertexPos(uint triangleIndex)
 	uint3 indices = GetIndices(triangleIndex);
 	TriangleVertex v;
 
-	int testing_address1 = indices[0] * (8 * 4) + (3*4);
-	int testing_address2 = indices[1] * (8 * 4) + (3*4);
-	int testing_address3 = indices[2] * (8 * 4) + (3*4);
+	int testing_address1 = indices[0] * (10 * 4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the Normals member)
+	int testing_address2 = indices[1] * (10 * 4) + (3*4);
+	int testing_address3 = indices[2] * (10 * 4) + (3*4);
 	TriangleVertex vn;
 	vn.firstVert =  asfloat(vertices.Load3(testing_address1));
 	vn.secondVert = asfloat(vertices.Load3(testing_address2));

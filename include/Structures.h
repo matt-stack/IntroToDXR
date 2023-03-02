@@ -62,7 +62,7 @@ struct Vertex
 {
 	DirectX::XMFLOAT3 position;
 	DirectX::XMFLOAT3 normal;
-	DirectX::XMINT2 materialId;
+	DirectX::XMINT2 materialId; // this is added! Throwing off normals! 4 bytes * 2?
 	DirectX::XMFLOAT2 uv;
 
 	bool operator==(const Vertex &v) const 
@@ -244,7 +244,8 @@ struct D3D12Resources
 	UINT8*											materialCBStart = nullptr;
 
 	ID3D12Resource*	myMaterialCB = nullptr;
-	MyMaterialCB myMaterialCBData;
+	//MyMaterialCB myMaterialCBData; // original, wasnt making sense for the vec approach
+	size_t myMaterialCBDataSize; // stores the size of the std::Vector of MyMaterialCB's
 	UINT* myMaterialCBStart = nullptr;
 
 	ID3D12DescriptorHeap*							rtvHeap = nullptr;

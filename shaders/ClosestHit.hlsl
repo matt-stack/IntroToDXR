@@ -51,13 +51,13 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 
 //	int2 coord = floor(vertex.uv * textureResolution.x);
 //	float3 color = albedo.Load(int3(coord, 0)).rgb;
-
 //	float3 normal = CalculateSurfaceNormal(triVerts);
 
 //	float3 color = { attrib.uv.x , attrib.uv.y, 211 };
-	//float3 color = normal * 0.5 + 0.5;
+//	float3 color = normal * 0.5 + 0.5;
 	//float3 color = triVerts.firstVert * 0.5 + 0.5;
 	float3 color = triVerts.firstVert;
+	//float3 color = triVerts.firstVert; firstVerts for normals
 
 	payload.ShadedColorAndHitT = float4(color, RayTCurrent());
 }
