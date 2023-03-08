@@ -84,7 +84,7 @@ public:
 //		D3DResources::Create_Texture(d3d, resources, material);
 		D3DResources::Create_View_CB(d3d, resources);
 		D3DResources::Create_Material_CB(d3d, resources, material);
-	//	D3DResources::Create_My_Material_CB(d3d, resources, myMaterialVector, myMaterialVector.size());
+		D3DResources::Create_My_Material_CB(d3d, resources, myMaterialVector, myMaterialVector.size());
 		
 		// Create DXR specific resources
 		//DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
