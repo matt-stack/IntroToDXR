@@ -28,6 +28,7 @@
 #pragma once
 
 #include "Common.h"
+#include <memory>
 
 //--------------------------------------------------------------------------------------
 // Helpers
@@ -163,7 +164,8 @@ struct ViewCB
 // mstack version 
 struct MyMaterialCB
 {
-	DirectX::XMFLOAT3 diffuse = {0, 0, 0}; //RGB
+	//DirectX::XMFLOAT3 diffuse = {0, 0, 0}; //RGB
+	DirectX::XMFLOAT4 diffuse = {0, 0, 0, 0}; //RGB + pad
 };
 
 //--------------------------------------------------------------------------------------
@@ -212,6 +214,8 @@ struct D3D12ShaderInfo
 	LPCWSTR		filename = nullptr;
 	LPCWSTR		entryPoint = nullptr;
 	LPCWSTR		targetProfile = nullptr;
+	//LPCWSTR*	arguments = nullptr;
+	//std::unique_ptr<LPCWSTR>	arguments = nullptr;
 	LPCWSTR*	arguments = nullptr;
 	DxcDefine*	defines = nullptr;
 	UINT32		argCount = 0;
@@ -223,6 +227,19 @@ struct D3D12ShaderInfo
 		filename = inFilename;
 		entryPoint = inEntryPoint;
 		targetProfile = inProfile;
+	}
+
+
+	// mstack adding constructor to pass debug
+	D3D12ShaderInfo(LPCWSTR inFilename, LPCWSTR inEntryPoint, LPCWSTR inProfile, LPCWSTR inDebug)
+	{
+		filename = inFilename;
+		entryPoint = inEntryPoint;
+		targetProfile = inProfile;
+		//arguments = std::make_unique<LPCWSTR>(inDebug);
+		arguments = new LPCWSTR(L"-Zi");
+		//*arguments = inDebug;
+		argCount = 1;
 	}
 };
 
@@ -314,6 +331,7 @@ struct RtProgram
 	RtProgram(D3D12ShaderInfo shaderInfo)
 	{
 		info = shaderInfo;
+		//info = std::move(shaderInfo);
 		subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
 		exportName = shaderInfo.entryPoint;
 		exportDesc.ExportToRename = nullptr;

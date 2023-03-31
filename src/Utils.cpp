@@ -210,13 +210,10 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 
 	for (auto it : materials) 
 	{
-		float temp[3] {};
-		temp[0] = it.diffuse[0];
-		temp[1] = it.diffuse[1];
-		temp[2] = it.diffuse[2];
-		
 		MyMaterialCB temp_MMCB {};
-		DirectX::XMFLOAT3 temp_DF = { it.diffuse[0], it.diffuse[1], it.diffuse[2] };
+		//DirectX::XMFLOAT3 temp_DF = { it.diffuse[0], it.diffuse[1], it.diffuse[2] };
+		DirectX::XMFLOAT4 temp_DF = { it.diffuse[0], it.diffuse[1], it.diffuse[2], 0.f };
+		//DirectX::XMFLOAT4 temp_DF = { 0.f, 0.f, 1.f , 0.0f};
 		temp_MMCB.diffuse = temp_DF;
 		materialVec.emplace_back(temp_MMCB);
 	}
@@ -265,7 +262,7 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 			// found out how to id the material for the index
 			// create CBV for Materials
 
-			if ((material_index % 3) == 0) { // new triangle, get material
+			if ((material_index % 3) == 0) { // new triangle, get material 0, 1, 2, ..
 				get_material = shape.mesh.material_ids[material_offset];
 			}
 

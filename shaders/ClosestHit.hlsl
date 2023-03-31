@@ -54,10 +54,19 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 //	float3 normal = CalculateSurfaceNormal(triVerts);
 
 //	float3 color = { attrib.uv.x , attrib.uv.y, 211 };
-//	float3 color = normal * 0.5 + 0.5;
-	//float3 color = triVerts.firstVert * 0.5 + 0.5;
 	float3 color = triVerts.firstVert;
-	//float3 color = triVerts.firstVert; firstVerts for normals
 
-	payload.ShadedColorAndHitT = float4(color, RayTCurrent());
+	int mat = GetMaterialId(triangleIndex);
+	float3 RGB = GetMaterialDiffuse(mat);
+	//float3 RGB = GetMaterialDiffuse(1);
+
+	float temp = (float)mat;
+
+	if (mat == 0) {
+		color = float3( 0.0, 0.0, 0.0 );
+	}
+	else {
+		color = float3( temp / 10, 0.0, 0.0 );
+	}
+	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
 }

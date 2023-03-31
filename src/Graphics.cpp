@@ -69,7 +69,7 @@ void Create_Buffer(D3D12Global &d3d, D3D12BufferCreateInfo& info, ID3D12Resource
 	resourceDesc.SampleDesc.Count = 1;
 	resourceDesc.SampleDesc.Quality = 0;
 	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	resourceDesc.Width = info.size;
+	resourceDesc.Width = info.size; // is this the new ByteWidth?
 	resourceDesc.Flags = info.flags;
 
 	// Create the GPU resource
@@ -559,12 +559,15 @@ void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, D3D12ShaderInfo &info
 		info.filename, 
 		info.entryPoint, 
 		info.targetProfile, 
-		info.arguments, 
-		info.argCount, 
+		info.arguments, // where there would be flags like debug
+		//info.arguments.get(), // where there would be flags like debug
+		info.argCount,  // where there would be flags like debug
 		info.defines, 
 		info.defineCount, 
 		dxcIncludeHandler, 
 		&result);
+	// mstack what Compile expects as args:
+	// https://github.com/microsoft/DirectXShaderCompiler/blob/ef53fb0f0f83200433e4dd3fb38fddfbfd04c71c/include/dxc/dxcapi.h#L300
 
 	Utils::Validate(hr, L"Error: failed to compile shader!");
 
@@ -1184,7 +1187,10 @@ void Create_Top_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler)
 {
 	// Load and compile the ray generation shader
-	dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3"));
+	// mstack this is where you would pass flags like debug to the dxcompiler
+	//dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3")); // original
+	dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
+	// https://asawicki.info/news_1719_two_shader_compilers_of_direct3d_12
 	D3DShaders::Compile_Shader(shaderCompiler, dxr.rgs);
 
 	// Describe the ray generation root signature
@@ -1202,7 +1208,7 @@ void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompiler
 	ranges[1].RegisterSpace = 0;
 	ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 	//ranges[1].OffsetInDescriptorsFromTableStart = 2;
-	ranges[1].OffsetInDescriptorsFromTableStart = 3;
+	ranges[1].OffsetInDescriptorsFromTableStart = 3; // mstack this was the missing piece
 
 	ranges[2].BaseShaderRegister = 0;
 	ranges[2].NumDescriptors = 4;
@@ -1237,7 +1243,8 @@ void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompiler
 void Create_Miss_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler)
 {
 	// Load and compile the miss shader
-	dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3"));
+	//dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3")); // original
+	dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 	D3DShaders::Compile_Shader(shaderCompiler, dxr.miss);
 }
 
@@ -1248,7 +1255,8 @@ void Create_Closest_Hit_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCom
 {
 	// Load and compile the Closest Hit shader
 	dxr.hit = HitProgram(L"Hit");
-	dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3"));
+	//dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3")); // original
+	dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 	D3DShaders::Compile_Shader(shaderCompiler, dxr.hit.chs);
 }
 

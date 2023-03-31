@@ -48,14 +48,18 @@ cbuffer ViewCB : register(b0) // b means constant buffer
 
 cbuffer MaterialCB : register(b1)
 {
-	float4 textureResolution;
+	float3 textureResolution;
 };
 
 
-//cbuffer MyMaterialCB : register(b2)
-//{
-//	float3 materials[9];
-//};
+
+cbuffer MyMaterialCB : register(b2)
+{
+	//float3 materials[9];
+	float4 materials[9];
+};
+
+//ByteAddressBuffer materials : register(b2);
 
 // ---[ Resources ]---
 
@@ -123,6 +127,31 @@ TriangleVertex GetVertexPos(uint triangleIndex)
 	vn.thirdVert =  asfloat(vertices.Load3(testing_address3));
 
 	return vn;
+}
+
+
+int GetMaterialId(uint triangleIndex)
+// visualize vertex normals
+{
+	uint3 indices = GetIndices(triangleIndex);
+
+	int testing_address1 = indices[0] * (10 * 4) + (3*4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the mat ID member)
+	//int testing_address1 = indices[0] + (3*4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the mat ID member)
+	int matID =  asint(vertices.Load(testing_address1));
+
+	return matID;
+}
+// something is worng with the materials, either indexing wrong or the values are bad,
+// try using a DX12 debugger again?
+
+float4 GetMaterialDiffuse(int matID) 
+{
+	float4 RGB = materials[matID];
+	//float3 RGB = float3(0.0f, 0.f, 0.f);
+	//float4 RGB = float4(0.0f, 0.f, 1.f, 0.f);
+
+	return RGB;
+
 }
 
 float3 worldHitPosition() {
