@@ -368,6 +368,18 @@ void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const st
 	memcpy(resources.myMaterialCBStart, material_vec.data(), resources.myMaterialCBDataSize);
 }
 
+void Create_MiscBuffer_CB(D3D12Global& d3d, D3D12Resources& resources) {
+	Create_Constant_Buffer(d3d, &resources.miscBufferCB, sizeof(miscBuffer) );
+#if NAME_D3D_RESOURCES
+	resources.miscBufferCB->SetName(L"Misc Buffer Constant Buffer");
+#endif
+
+	HRESULT hr = resources.miscBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.miscBufferCBStart));
+	Utils::Validate(hr, L"Error: failed to map misc buffer constant buffer!");
+
+	memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
+}
+
 /**
 * Create the RTV descriptor heap. Render Target View, non-shader visable
 */
@@ -1198,24 +1210,28 @@ void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompiler
 
 	ranges[0].BaseShaderRegister = 0;
 	//ranges[0].NumDescriptors = 2;
-	ranges[0].NumDescriptors = 3;
+	//ranges[0].NumDescriptors = 3;
+	ranges[0].NumDescriptors = 4; // now its 4 because I added miscBuffer
 	ranges[0].RegisterSpace = 0;
 	ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	ranges[0].OffsetInDescriptorsFromTableStart = 0;
+	// ^ this translates as three CBVs, then you need to make sure the following are offset correctly
 
 	ranges[1].BaseShaderRegister = 0;
 	ranges[1].NumDescriptors = 1;
 	ranges[1].RegisterSpace = 0;
 	ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 	//ranges[1].OffsetInDescriptorsFromTableStart = 2;
-	ranges[1].OffsetInDescriptorsFromTableStart = 3; // mstack this was the missing piece
+	//ranges[1].OffsetInDescriptorsFromTableStart = 3; // mstack this was the missing piece!
+	ranges[1].OffsetInDescriptorsFromTableStart = 4; // mstack this was the missing piece!
 
 	ranges[2].BaseShaderRegister = 0;
 	ranges[2].NumDescriptors = 4;
 	ranges[2].RegisterSpace = 0;
 	ranges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	//ranges[2].OffsetInDescriptorsFromTableStart = 3;
-	ranges[2].OffsetInDescriptorsFromTableStart = 4;
+	//ranges[2].OffsetInDescriptorsFromTableStart = 4;
+	ranges[2].OffsetInDescriptorsFromTableStart = 5;
 
 	D3D12_ROOT_PARAMETER param0 = {};
 	param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -1500,6 +1516,7 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	// 1 CBV for the ViewCB
 	// 1 CBV for the MaterialCB
 	// NEW ADD 1 CBV for the MyMaterialCB, will be in b(2)?
+	// NEW ADD 1 CBV for the miscBufferCB, will be in b(3)
 	// 1 UAV for the RT output
 	// 1 SRV for the Scene BVH
 	// 1 SRV for the index buffer
@@ -1507,7 +1524,8 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	// 1 SRV for the texture
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	//desc.NumDescriptors = 7;
-	desc.NumDescriptors = 8;
+	//desc.NumDescriptors = 8;
+	desc.NumDescriptors = 9; // new for miscBuffer
 	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -1541,6 +1559,14 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 
 	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, resources.myMaterialCBDataSize);
 	cbvDesc.BufferLocation = resources.myMaterialCB->GetGPUVirtualAddress();
+
+	handle.ptr += handleIncrement;
+	d3d.device->CreateConstantBufferView(&cbvDesc, handle);
+
+	// NEW ADD for the miscBuffer
+
+	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.miscBufferData));
+	cbvDesc.BufferLocation = resources.miscBufferCB->GetGPUVirtualAddress();
 
 	handle.ptr += handleIncrement;
 	d3d.device->CreateConstantBufferView(&cbvDesc, handle);

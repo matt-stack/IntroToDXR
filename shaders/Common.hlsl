@@ -51,11 +51,17 @@ cbuffer MaterialCB : register(b1)
 	float3 textureResolution;
 };
 
-
+cbuffer miscBuffer : register(b3)
+{
+	float3 Rgb;// = { 1, 0, 0 };
+	float3 rGb;// = { 0, 1, 0 };
+	float3 rgB;// = { 0, 0, 1 };
+	float2 rG;// = { 0, 1 };
+};
 
 cbuffer MyMaterialCB : register(b2)
 {
-	//float3 materials[9];
+	//float3 materials[9]; this was under 16 bytes and thus the bits were messed up
 	float4 materials[9];
 };
 
@@ -146,9 +152,8 @@ int GetMaterialId(uint triangleIndex)
 
 float4 GetMaterialDiffuse(int matID) 
 {
-	float4 RGB = materials[matID];
-	//float3 RGB = float3(0.0f, 0.f, 0.f);
-	//float4 RGB = float4(0.0f, 0.f, 1.f, 0.f);
+	float4 RGB = materials[matID]; // working one, commented out for miscBuffer testing
+	//float4 RGB = float4(rgB, 0); // testing
 
 	return RGB;
 

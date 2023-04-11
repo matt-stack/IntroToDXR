@@ -168,6 +168,15 @@ struct MyMaterialCB
 	DirectX::XMFLOAT4 diffuse = {0, 0, 0, 0}; //RGB + pad
 };
 
+struct miscBuffer
+{
+	DirectX::XMFLOAT3 Rgb = { 1, 0, 0};
+	DirectX::XMFLOAT3 rGb = { 0, 1, 0};
+	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
+	DirectX::XMFLOAT2 rG = { 0, 1 };
+// random unpacked stuct to test non-array cbuffers
+};
+
 //--------------------------------------------------------------------------------------
 // D3D12
 //--------------------------------------------------------------------------------------
@@ -264,6 +273,10 @@ struct D3D12Resources
 	//MyMaterialCB myMaterialCBData; // original, wasnt making sense for the vec approach
 	size_t myMaterialCBDataSize; // stores the size of the std::Vector of MyMaterialCB's
 	UINT* myMaterialCBStart = nullptr;
+
+	ID3D12Resource*	miscBufferCB = nullptr;
+	miscBuffer miscBufferData{}; // default init
+	UINT* miscBufferCBStart = nullptr; // mapped gpu address
 
 	ID3D12DescriptorHeap*							rtvHeap = nullptr;
 	ID3D12DescriptorHeap*							descriptorHeap = nullptr;
