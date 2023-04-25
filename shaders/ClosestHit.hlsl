@@ -39,34 +39,36 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 
 	float3 worldRayHit = worldHitPosition();
 
-//	uint3 vertices = getIndicies(triangleIndex);
-
-
-
-	float3 vertexNormals = {
-		0, 0, 0
-	};
-
-//	float worldNormal = mul(attrib.normal, (float3x3)ObjectToWorld3x4());
-
-//	int2 coord = floor(vertex.uv * textureResolution.x);
-//	float3 color = albedo.Load(int3(coord, 0)).rgb;
-//	float3 normal = CalculateSurfaceNormal(triVerts);
-
-//	float3 color = { attrib.uv.x , attrib.uv.y, 211 };
 	float3 color = triVerts.firstVert;
 
 	int mat = GetMaterialId(triangleIndex);
 	float3 RGB = GetMaterialDiffuse(mat);
-	//float3 RGB = GetMaterialDiffuse(1);
 
-	float temp = (float)mat;
+	// Setup Shadow Ray
+	RayDesc shadowRay;
+	shadowRay.Origin = worldRayHit;
+	shadowRay.Direction = normalize(g_lights[0].xyz - worldRayHit);
+	shadowRay.TMin = 0.1f;
+	shadowRay.TMax = 100.f;	
 
-	if (mat == 0) {
-		color = float3( 0.0, 0.0, 0.0 );
-	}
-	else {
-		color = float3( temp / 10, 0.0, 0.0 );
-	}
-	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
+	// Trace the ray
+	ShadowInfo shadowPayload;
+	shadowPayload.isVis = 0.f;
+
+	TraceRay(
+		SceneBVH,
+		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
+		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+		0xFF,
+		0,
+		0,
+		0,
+		ray,
+		payload);
+
+	float3 finalColor;
+
+	//RGB + shadow contribution
+
+	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
 }

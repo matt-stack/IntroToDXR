@@ -51,18 +51,20 @@ cbuffer MaterialCB : register(b1)
 	float3 textureResolution;
 };
 
-cbuffer miscBuffer : register(b3)
-{
-	float3 Rgb;// = { 1, 0, 0 };
-	float3 rGb;// = { 0, 1, 0 };
-	float3 rgB;// = { 0, 0, 1 };
-	float2 rG;// = { 0, 1 };
-};
 
 cbuffer MyMaterialCB : register(b2)
 {
 	//float3 materials[9]; this was under 16 bytes and thus the bits were messed up
 	float4 materials[9];
+};
+
+cbuffer miscBuffer : register(b3)
+{
+	float2 Rg;// = { 1, 0};
+	float2 rG;// = { 0, 1};
+	float3 rgB;// = { 0, 0, 1 };
+//	float1 one;
+	float2 rGe;// = { 0, 1 };
 };
 
 //ByteAddressBuffer materials : register(b2);
@@ -153,6 +155,7 @@ int GetMaterialId(uint triangleIndex)
 float4 GetMaterialDiffuse(int matID) 
 {
 	float4 RGB = materials[matID]; // working one, commented out for miscBuffer testing
+//	float4 RGB = float4(rGe, 0, 0); // testing
 	//float4 RGB = float4(rgB, 0); // testing
 
 	return RGB;
@@ -176,3 +179,15 @@ float3 CalculateSurfaceNormal(TriangleVertex tri) {
 
 	return normal;
 }
+
+// ---Shadow Stuff---
+
+struct ShadowInfo {
+	float isVis; // 1 for visible, 0 for in shadow
+};
+
+struct Lights {
+	float4 posAndIntensity; // first 3 for x,y,z fourth for intensity
+};
+
+Lights g_Lights = {float4( 5.0f, 5.0f, 5.0f, 1.0f )};

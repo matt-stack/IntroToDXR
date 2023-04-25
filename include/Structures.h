@@ -170,10 +170,10 @@ struct MyMaterialCB
 
 struct miscBuffer
 {
-	DirectX::XMFLOAT3 Rgb = { 1, 0, 0};
-	DirectX::XMFLOAT3 rGb = { 0, 1, 0};
+	DirectX::XMFLOAT2 Rg = { 1, 0};
+	DirectX::XMFLOAT2 rG = { 0, 1};
 	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
-	DirectX::XMFLOAT2 rG = { 0, 1 };
+	DirectX::XMFLOAT2 rGe = { 0, 1 };
 // random unpacked stuct to test non-array cbuffers
 };
 
@@ -404,6 +404,10 @@ struct DXRGlobal
 	RtProgram										rgs;
 	RtProgram										miss;
 	HitProgram										hit;
+
+	// for shadows
+	RtProgram										shadowmiss;
+	HitProgram										shadowhit;
 
 	ID3D12StateObject*								rtpso = nullptr;
 	ID3D12StateObjectProperties*					rtpsoInfo = nullptr;

@@ -1276,6 +1276,29 @@ void Create_Closest_Hit_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCom
 	D3DShaders::Compile_Shader(shaderCompiler, dxr.hit.chs);
 }
 
+
+/**
+* Load and create the DXR SHADOW Miss program and root signature.
+*/
+void Create_Shadow_Miss_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler)
+{
+	// Load and compile the miss shader
+	//dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3")); // original
+	dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
+	D3DShaders::Compile_Shader(shaderCompiler, dxr.shadowmiss);
+}
+
+/**
+* Load and create the DXR SHADOW any Hit program and root signature.
+*/
+void Create_Shadow_Any_Hit_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler)
+{
+	// Load and compile the Closest Hit shader
+	dxr.shadowhit = HitProgram(L"ShadowHit");
+	dxr.shadowhit.ahs = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
+	D3DShaders::Compile_Shader(shaderCompiler, dxr.shadowhit.ahs);
+}
+
 /**
 * Create the DXR pipeline state object.
 */
@@ -1284,15 +1307,24 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	// Need 10 subobjects:
 	// 1 for RGS program
 	// 1 for Miss program
+	// 1 for SHADOW Miss program // new +1
 	// 1 for CHS program
+	// 1 for SHADOW AHS program // new +1
 	// 1 for Hit Group
+	// 1 for SHADOW Hit Group // new +1
 	// 2 for RayGen Root Signature (root-signature and association)
 	// 2 for Shader Config (config and association)
 	// 1 for Global Root Signature
 	// 1 for Pipeline Config	
+
+	/*
+	Will need to double check the indexing if I change the size
+	*/
+
 	UINT index = 0;
 	vector<D3D12_STATE_SUBOBJECT> subobjects;
-	subobjects.resize(10);
+	//subobjects.resize(10);
+	subobjects.resize(13);
 	
 	// Add state subobject for the RGS
 	D3D12_EXPORT_DESC rgsExportDesc = {};
@@ -1330,6 +1362,24 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 
 	subobjects[index++] = ms;
 
+	// Add state subobject for the SHADOW Miss shader
+	D3D12_EXPORT_DESC smsExportDesc = {};
+	smsExportDesc.Name = L"Shadow_Miss_5";
+	smsExportDesc.ExportToRename = L"ShadowMiss";
+	smsExportDesc.Flags = D3D12_EXPORT_FLAG_NONE;
+
+	D3D12_DXIL_LIBRARY_DESC	smsLibDesc = {};
+	smsLibDesc.DXILLibrary.BytecodeLength = dxr.shadowmiss.blob->GetBufferSize();
+	smsLibDesc.DXILLibrary.pShaderBytecode = dxr.shadowmiss.blob->GetBufferPointer();
+	smsLibDesc.NumExports = 1;
+	smsLibDesc.pExports = &smsExportDesc;
+
+	D3D12_STATE_SUBOBJECT sms = {};
+	sms.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+	sms.pDesc = &smsLibDesc;
+
+	subobjects[index++] = sms;
+
 	// Add state subobject for the Closest Hit shader
 	D3D12_EXPORT_DESC chsExportDesc = {};
 	chsExportDesc.Name = L"ClosestHit_76";
@@ -1348,6 +1398,24 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 
 	subobjects[index++] = chs;
 
+	// Add state subobject for the SHADOW AHS shader
+	D3D12_EXPORT_DESC sahsExportDesc = {};
+	sahsExportDesc.Name = L"ShadowAnyHit_76";
+	sahsExportDesc.ExportToRename = L"ShadowRayAnyHit";
+	sahsExportDesc.Flags = D3D12_EXPORT_FLAG_NONE;
+
+	D3D12_DXIL_LIBRARY_DESC	sahsLibDesc = {};
+	sahsLibDesc.DXILLibrary.BytecodeLength = dxr.shadowhit.ahs.blob->GetBufferSize();
+	sahsLibDesc.DXILLibrary.pShaderBytecode = dxr.shadowhit.ahs.blob->GetBufferPointer();
+	sahsLibDesc.NumExports = 1;
+	sahsLibDesc.pExports = &sahsExportDesc;
+
+	D3D12_STATE_SUBOBJECT sahs = {};
+	sahs.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+	sahs.pDesc = &sahsLibDesc;
+
+	subobjects[index++] = sahs;
+
 	// Add a state subobject for the hit group
 	D3D12_HIT_GROUP_DESC hitGroupDesc = {};
 	hitGroupDesc.ClosestHitShaderImport = L"ClosestHit_76";
@@ -1358,6 +1426,17 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	hitGroup.pDesc = &hitGroupDesc;
 
 	subobjects[index++] = hitGroup;
+
+	// Add a state subobject for the SHADOW hit group
+	D3D12_HIT_GROUP_DESC shadowHitGroupDesc = {};
+	shadowHitGroupDesc.AnyHitShaderImport = L"ShadowAnyHit_76";
+	shadowHitGroupDesc.HitGroupExport = L"ShadowHitGroup";
+
+	D3D12_STATE_SUBOBJECT shadowHitGroup = {};
+	shadowHitGroup.Type = D3D12_STATE_SUBOBJECT_TYPE_HIT_GROUP;
+	shadowHitGroup.pDesc = &shadowHitGroupDesc;
+
+	subobjects[index++] = shadowHitGroup;
 
 	// Add a state subobject for the shader payload configuration
 	D3D12_RAYTRACING_SHADER_CONFIG shaderDesc = {};
@@ -1415,7 +1494,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 
 	// Add a state subobject for the ray tracing pipeline config
 	D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
-	pipelineConfig.MaxTraceRecursionDepth = 1;
+	pipelineConfig.MaxTraceRecursionDepth = 1; // mstack: this stays at one , GI multiple bounces loop in ray gen
 
 	D3D12_STATE_SUBOBJECT pipelineConfigObject = {};
 	pipelineConfigObject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
@@ -1540,7 +1619,7 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 	resources.descriptorHeap->SetName(L"DXR Descriptor Heap");
 #endif
 
-	// Create the ViewCB CBV- this is creating a descriptor
+	// Create the ViewCB CBV- this is creating a descriptor, given the buffer in GPU memory pointer
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
 	cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.viewCBData));
 	cbvDesc.BufferLocation = resources.viewCB->GetGPUVirtualAddress();
@@ -1640,6 +1719,8 @@ void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &r
 
 /**
 * Create the DXR output buffer.
+* mstack: Unlike raster, RT program doesnt write directly to render target, instead
+* uses a UAV buffer holding the RT output
 */
 void Create_DXR_Output(D3D12Global &d3d, D3D12Resources &resources)
 {
