@@ -1194,7 +1194,7 @@ void Create_Top_Level_AS(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 }
 
 /**
-* Load and create the DXR Ray Generation program and root signature.
+* Load and create the DXR Ray Generation program and ROOT SIGNATURE.
 */
 void Create_RayGen_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo &shaderCompiler)
 {
@@ -1284,7 +1284,7 @@ void Create_Shadow_Miss_Program(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCom
 {
 	// Load and compile the miss shader
 	//dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3")); // original
-	dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
+	dxr.shadowmiss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 	D3DShaders::Compile_Shader(shaderCompiler, dxr.shadowmiss);
 }
 
@@ -1314,6 +1314,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	// 1 for SHADOW Hit Group // new +1
 	// 2 for RayGen Root Signature (root-signature and association)
 	// 2 for Shader Config (config and association)
+	// 2 for Shadow Shader Config (config and association) // new +2 -- mm maybe not
 	// 1 for Global Root Signature
 	// 1 for Pipeline Config	
 
@@ -1325,6 +1326,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	vector<D3D12_STATE_SUBOBJECT> subobjects;
 	//subobjects.resize(10);
 	subobjects.resize(13);
+	//subobjects.resize(15);
 	
 	// Add state subobject for the RGS
 	D3D12_EXPORT_DESC rgsExportDesc = {};
@@ -1364,7 +1366,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 
 	// Add state subobject for the SHADOW Miss shader
 	D3D12_EXPORT_DESC smsExportDesc = {};
-	smsExportDesc.Name = L"Shadow_Miss_5";
+	smsExportDesc.Name = L"ShadowMiss_5";
 	smsExportDesc.ExportToRename = L"ShadowMiss";
 	smsExportDesc.Flags = D3D12_EXPORT_FLAG_NONE;
 
@@ -1401,7 +1403,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	// Add state subobject for the SHADOW AHS shader
 	D3D12_EXPORT_DESC sahsExportDesc = {};
 	sahsExportDesc.Name = L"ShadowAnyHit_76";
-	sahsExportDesc.ExportToRename = L"ShadowRayAnyHit";
+	sahsExportDesc.ExportToRename = L"ShadowHit";
 	sahsExportDesc.Flags = D3D12_EXPORT_FLAG_NONE;
 
 	D3D12_DXIL_LIBRARY_DESC	sahsLibDesc = {};
@@ -1450,19 +1452,61 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	subobjects[index++] = shaderConfigObject;
 
 	// Create a list of the shader export names that use the payload
-	const WCHAR* shaderExports[] = { L"RayGen_12", L"Miss_5", L"HitGroup" };
+	//const WCHAR* shaderExports[] = { L"RayGen_12", L"Miss_5", L"HitGroup" };
+	const WCHAR* shaderExports[] = { L"RayGen_12", L"Miss_5", L"HitGroup", L"ShadowMiss_5", L"ShadowHitGroup"};
 
 	// Add a state subobject for the association between shaders and the payload
 	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION shaderPayloadAssociation = {};
 	shaderPayloadAssociation.NumExports = _countof(shaderExports);
 	shaderPayloadAssociation.pExports = shaderExports;
-	shaderPayloadAssociation.pSubobjectToAssociate = &subobjects[(index - 1)];
+	shaderPayloadAssociation.pSubobjectToAssociate = &subobjects[(index - 1)]; 
+	// mstack: ^^^ subobjects[index-1] == shaderConfigObject
 
 	D3D12_STATE_SUBOBJECT shaderPayloadAssociationObject = {};
 	shaderPayloadAssociationObject.Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION;
 	shaderPayloadAssociationObject.pDesc = &shaderPayloadAssociation;
 
 	subobjects[index++] = shaderPayloadAssociationObject;
+
+/*
+	// Add a state subobject for the SHADOW shader payload configuration
+	D3D12_RAYTRACING_SHADER_CONFIG shadowShaderDesc = {};
+	shadowShaderDesc.MaxPayloadSizeInBytes = sizeof(FLOAT);	// RGB and HitT
+	shadowShaderDesc.MaxAttributeSizeInBytes = D3D12_RAYTRACING_MAX_ATTRIBUTE_SIZE_IN_BYTES;
+
+	D3D12_STATE_SUBOBJECT shadowShaderConfigObject = {};
+	shadowShaderConfigObject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG;
+	shadowShaderConfigObject.pDesc = &shadowShaderDesc;
+
+	subobjects[index++] = shadowShaderConfigObject;
+
+	// Create a list of the shader export names that use the payload
+	const WCHAR* shadowShaderExports[] = { L"ShadowMiss_5", L"ShadowHitGroup" };
+
+	// Add a state subobject for the association between shaders and the payload
+	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION shadowShaderPayloadAssociation = {};
+	shadowShaderPayloadAssociation.NumExports = _countof(shadowShaderExports);
+	shadowShaderPayloadAssociation.pExports = shadowShaderExports;
+	shadowShaderPayloadAssociation.pSubobjectToAssociate = &subobjects[(index - 1)]; 
+	// mstack: ^^^ subobjects[index-1] == shaderConfigObject
+
+	D3D12_STATE_SUBOBJECT shadowShaderPayloadAssociationObject = {};
+	shadowShaderPayloadAssociationObject.Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION;
+	shadowShaderPayloadAssociationObject.pDesc = &shadowShaderPayloadAssociation;
+
+	subobjects[index++] = shadowShaderPayloadAssociationObject;
+	// I believe this Shadow shader config object is incorrect to have because
+	// an RTPSO can only have one definition for all functions subobjects, and the 
+	// shadow payload is less than the primary ray payloads max bytes
+	// 
+	// D3D12 ERROR: ID3D12Device::CreateStateObject: For subobjects of type 
+	// D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_SHADER_CONFIG, every function in
+	// a state object must be associated to either the same subobject definition, 
+	// or if there are different subobjects their respective definitions must match. 
+	// In this case function "ShadowMiss_5" has a different definition for this subobject type 
+	// than another function in the same state object: "RayGen_12". 
+	// [ STATE_CREATION ERROR #1194: CREATE_STATE_OBJECT_ERROR]
+	*/
 
 	// Add a state subobject for the shared root signature 
 	D3D12_STATE_SUBOBJECT rayGenRootSigObject = {};
@@ -1472,7 +1516,9 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	subobjects[index++] = rayGenRootSigObject;
 
 	// Create a list of the shader export names that use the root signature
-	const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5" };
+	//const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5" };
+	const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5", L"ShadowHitGroup", L"ShadowMiss_5"};
+	// mstack ^^ I think the new shadow rays use the same Root Sig
 
 	// Add a state subobject for the association between the RayGen shader and the local root signature
 	D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION rayGenShaderRootSigAssociation = {};
@@ -1507,6 +1553,7 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 	pipelineDesc.Type = D3D12_STATE_OBJECT_TYPE_RAYTRACING_PIPELINE;
 	pipelineDesc.NumSubobjects = static_cast<UINT>(subobjects.size());
 	pipelineDesc.pSubobjects = subobjects.data();
+	// mstack: ^^^ combine all the subojects into one State object
 
 	// Create the RT Pipeline State Object (RTPSO)
 	HRESULT hr = d3d.device->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&dxr.rtpso));

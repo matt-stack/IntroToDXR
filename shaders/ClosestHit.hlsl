@@ -47,7 +47,9 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	// Setup Shadow Ray
 	RayDesc shadowRay;
 	shadowRay.Origin = worldRayHit;
-	shadowRay.Direction = normalize(g_lights[0].xyz - worldRayHit);
+	//shadowRay.Direction = normalize(g_Lights[0].xyz - worldRayHit);
+	float4 mainLight = float4(5.f, 5.f, 5.f, 1.f);
+	shadowRay.Direction = normalize(mainLight.xyz - worldRayHit);
 	shadowRay.TMin = 0.1f;
 	shadowRay.TMax = 100.f;	
 
@@ -63,12 +65,19 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 		0,
 		0,
 		0,
-		ray,
-		payload);
+		shadowRay,
+		shadowPayload);
 
 	float3 finalColor;
 
 	//RGB + shadow contribution
+
+	if (shadowPayload.isVis == 1) {
+		finalColor = float3( RGB.x * 1., RGB.y * 1., RGB.z * 1. );
+	}
+	else { 
+		finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
+	}
 
 	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
 }

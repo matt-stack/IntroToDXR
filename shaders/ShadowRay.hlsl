@@ -21,7 +21,7 @@ void ShadowHit(inout ShadowInfo payload, Attributes attrib)
 // ---[ Miss Shader ]---
 
 [shader("miss")]
-void Miss(inout ShadowInfo payload)
+void ShadowMiss(inout ShadowInfo payload)
 {
     //payload.ShadedColorAndHitT = float4(0.2f, 0.2f, 0.2f, -1.f);
 	payload.isVis = 1.f;

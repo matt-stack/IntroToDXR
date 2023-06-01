@@ -186,8 +186,14 @@ struct ShadowInfo {
 	float isVis; // 1 for visible, 0 for in shadow
 };
 
-struct Lights {
+struct Light {
 	float4 posAndIntensity; // first 3 for x,y,z fourth for intensity
 };
 
-Lights g_Lights = {float4( 5.0f, 5.0f, 5.0f, 1.0f )};
+
+/*
+Notes-
+Btw, this looks like a good Vulkan tutorial if ever needed
+https://github.com/SaschaWillems/Vulkan/tree/master/data/shaders/glsl/raytracingshadows
+
+*/

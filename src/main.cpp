@@ -97,6 +97,8 @@ public:
 		DXR::Create_RayGen_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Miss_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Closest_Hit_Program(d3d, dxr, shaderCompiler);
+		DXR::Create_Shadow_Miss_Program(d3d, dxr, shaderCompiler);
+		DXR::Create_Shadow_Any_Hit_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Pipeline_State_Object(d3d, dxr);
 		DXR::Create_Shader_Table(d3d, dxr, resources);
 
