@@ -34,9 +34,9 @@
 #include <iostream>
 
 // for PIX
-#include <filesystem>
-#include <shlobj.h>
-#include <fstream>
+//#include <filesystem>
+//#include <shlobj.h>
+//#include <fstream>
 
 using namespace std;
 using namespace DirectX;
@@ -603,7 +603,7 @@ void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, D3D12ShaderInfo &info
 		return;
 	}
 
-	hr = result->GetResult(blob);
+	hr = result->GetResult(blob); // putting result into blob
 	Utils::Validate(hr, L"Error: failed to get shader blob result!");
 }
 
@@ -684,10 +684,10 @@ static std::wstring GetLatestWinPixGpuCapturerPath_Cpp17()
 void Load_PIX() {
 	// Check to see if a copy of WinPixGpuCapturer.dll has already been injected into the application.
 	// This may happen if the application is launched through the PIX UI. 
-	if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
-	{
+	//if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
+//	{
 	//	LoadLibrary(GetLatestWinPixGpuCapturerPath_Cpp17().c_str());
-	}
+//	}
 
 	}
 
@@ -696,6 +696,7 @@ void Load_PIX() {
 */
 void Create_Device(D3D12Global &d3d)
 {
+/*
 #if defined(_DEBUG) || defined(_PROFILE)
 	// Enable the D3D12 debug layer.
 	{
@@ -706,7 +707,7 @@ void Create_Device(D3D12Global &d3d)
 		}
 	}
 #endif
-
+*/
 	// Create a DXGI Factory
 	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&d3d.factory));
 	Utils::Validate(hr, L"Error: failed to create DXGI factory!");
@@ -1534,7 +1535,8 @@ void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr)
 
 	D3D12_STATE_SUBOBJECT globalRootSig;
 	globalRootSig.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
-	globalRootSig.pDesc = &dxr.miss.pRootSignature;
+	//globalRootSig.pDesc = &dxr.miss.pRootSignature;
+	globalRootSig.pDesc = &dxr.miss.pRootSignature; // should this technically be the rgs root sig?
 
 	subobjects[index++] = globalRootSig;
 
@@ -1576,7 +1578,9 @@ void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 	The Shader Table layout is as follows:
 		Entry 0 - Ray Generation shader
 		Entry 1 - Miss shader
-		Entry 2 - Closest Hit shader
+		Entry 2 - Shadow Miss shader // new
+		Entry 3 - Closest Hit shader // previously entry 2
+		Entry 4 - Shadow Any Hit Shader // new
 	All shader records in the Shader Table must have the same size, so shader record size will be based on the largest required entry.
 	The ray generation program requires the largest entry: 
 		32 bytes - D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES 
@@ -1592,7 +1596,8 @@ void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 	dxr.shaderTableRecordSize += 8;							// CBV/SRV/UAV descriptor table pointewr(?)
 	dxr.shaderTableRecordSize = ALIGN(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT, dxr.shaderTableRecordSize);
 
-	shaderTableSize = (dxr.shaderTableRecordSize * 3);		// 3 shader records in the table
+	//shaderTableSize = (dxr.shaderTableRecordSize * 3);		// 3 shader records in the table
+	shaderTableSize = (dxr.shaderTableRecordSize * 5);		// 5 shader records in the table *new size with shadow shaders
 	shaderTableSize = ALIGN(D3D12_RAYTRACING_SHADER_TABLE_BYTE_ALIGNMENT, shaderTableSize);
 
 	// Create the shader table buffer
@@ -1621,12 +1626,26 @@ void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resou
 	pData += dxr.shaderTableRecordSize;
 	memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"Miss_5"), shaderIdSize);
 
-	// Shader Record 2 - Closest Hit program and local root parameter data (descriptor table with constant buffer and IB/VB pointers)
+	// Shader Record 2 - Shadow Miss program (no local root arguments to set)
+	pData += dxr.shaderTableRecordSize;
+	memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"ShadowMiss_5"), shaderIdSize);
+
+	// Shader Record 3 - Closest Hit program and local root parameter data (descriptor table with constant buffer and IB/VB pointers)
 	pData += dxr.shaderTableRecordSize;
 	memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"HitGroup"), shaderIdSize);
 
 	// Set the root parameter data. Point to start of descriptor heap.
 	*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+
+	// Shader Record 4 - Shadow Any Hit program (no local root args) actually maybe because
+	// Anyhit includes the attributes param that it does need at least the vertex buffer from the descriptor
+	pData += dxr.shaderTableRecordSize;
+	memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"ShadowHitGroup"), shaderIdSize);
+
+	// Set the root parameter data. Point to start of descriptor heap.
+	*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+	// mstack ^^ if it were to go bindless, this wouldnt be here I believe
+	// Second time this line is called?
 
 	// Unmap
 	dxr.shaderTable->Unmap(0, nullptr);
@@ -1828,11 +1847,14 @@ void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resour
 	desc.RayGenerationShaderRecord.SizeInBytes = dxr.shaderTableRecordSize;
 
 	desc.MissShaderTable.StartAddress = dxr.shaderTable->GetGPUVirtualAddress() + dxr.shaderTableRecordSize;
-	desc.MissShaderTable.SizeInBytes = dxr.shaderTableRecordSize;		// Only a single Miss program entry
+	//desc.MissShaderTable.SizeInBytes = dxr.shaderTableRecordSize;		// Only a single Miss program entry
+	desc.MissShaderTable.SizeInBytes = dxr.shaderTableRecordSize * 2;		// Updated for shadows * mstack
 	desc.MissShaderTable.StrideInBytes = dxr.shaderTableRecordSize;
 
-	desc.HitGroupTable.StartAddress = dxr.shaderTable->GetGPUVirtualAddress() + (dxr.shaderTableRecordSize * 2);
-	desc.HitGroupTable.SizeInBytes = dxr.shaderTableRecordSize;			// Only a single Hit program entry
+	//desc.HitGroupTable.StartAddress = dxr.shaderTable->GetGPUVirtualAddress() + (dxr.shaderTableRecordSize * 2); // original
+	desc.HitGroupTable.StartAddress = dxr.shaderTable->GetGPUVirtualAddress() + (dxr.shaderTableRecordSize * 3); // updated for shadows * mstack
+	//desc.HitGroupTable.SizeInBytes = dxr.shaderTableRecordSize;			// Only a single Hit program entry
+	desc.HitGroupTable.SizeInBytes = dxr.shaderTableRecordSize * 2;			// updated for shadows
 	desc.HitGroupTable.StrideInBytes = dxr.shaderTableRecordSize;
 
 	desc.Width = d3d.width;

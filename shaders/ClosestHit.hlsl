@@ -43,41 +43,44 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 
 	int mat = GetMaterialId(triangleIndex);
 	float3 RGB = GetMaterialDiffuse(mat);
-
+/*
 	// Setup Shadow Ray
 	RayDesc shadowRay;
 	shadowRay.Origin = worldRayHit;
 	//shadowRay.Direction = normalize(g_Lights[0].xyz - worldRayHit);
 	float4 mainLight = float4(5.f, 5.f, 5.f, 1.f);
-	shadowRay.Direction = normalize(mainLight.xyz - worldRayHit);
-	shadowRay.TMin = 0.1f;
-	shadowRay.TMax = 100.f;	
+	shadowRay.Direction = float3(1.f, 1.f, 1.f);
 
+	shadowRay.TMin = 0.1f;
+	shadowRay.TMax = 10.f;	
+	
 	// Trace the ray
 	ShadowInfo shadowPayload;
-	shadowPayload.isVis = 0.f;
+	shadowPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
 
 	TraceRay(
 		SceneBVH,
 		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
 		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
 		0xFF,
+		1,
 		0,
-		0,
-		0,
+		1,
 		shadowRay,
 		shadowPayload);
-
+		*/
 	float3 finalColor;
 
 	//RGB + shadow contribution
 
-	if (shadowPayload.isVis == 1) {
+//	if (shadowPayload.isVis.x == 1.f) {
 		finalColor = float3( RGB.x * 1., RGB.y * 1., RGB.z * 1. );
-	}
-	else { 
-		finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
-	}
-
+//	}
+//	else { 
+//		finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
+//	}
+		
+	
 	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
+//	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
 }

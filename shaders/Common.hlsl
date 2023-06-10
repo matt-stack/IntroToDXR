@@ -183,7 +183,7 @@ float3 CalculateSurfaceNormal(TriangleVertex tri) {
 // ---Shadow Stuff---
 
 struct ShadowInfo {
-	float isVis; // 1 for visible, 0 for in shadow
+	float4 isVis; // 1 for visible, 0 for in shadow
 };
 
 struct Light {

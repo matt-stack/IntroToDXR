@@ -9,13 +9,13 @@
 [shader("anyhit")]
 void ShadowHit(inout ShadowInfo payload, Attributes attrib)
 {
-	uint triangleIndex = PrimitiveIndex();
+//	uint triangleIndex = PrimitiveIndex();
 
-	float3 worldRayHit = worldHitPosition();
+//	float3 worldRayHit = worldHitPosition();
 //	if (isTransparent(attrib, triangleIndex)) {
 //		ignoreHit();
 //	}
-	payload.isVis = 0;
+	payload.isVis = float4(0.f, 0.f, 0.f, 0.f);
 }
 
 // ---[ Miss Shader ]---
@@ -24,5 +24,5 @@ void ShadowHit(inout ShadowInfo payload, Attributes attrib)
 void ShadowMiss(inout ShadowInfo payload)
 {
     //payload.ShadedColorAndHitT = float4(0.2f, 0.2f, 0.2f, -1.f);
-	payload.isVis = 1.f;
+	payload.isVis = float4(1.f, 1.f, 1.f, 1.f);
 }
