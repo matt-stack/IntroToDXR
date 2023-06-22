@@ -15,7 +15,8 @@ void ShadowHit(inout ShadowInfo payload, Attributes attrib)
 //	if (isTransparent(attrib, triangleIndex)) {
 //		ignoreHit();
 //	}
-	payload.isVis = float4(0.f, 0.f, 0.f, 0.f);
+	payload.isVis = float4(1.f, 0.3f, 0.3f, 0.f);
+	//AcceptHitAndEndSearch();
 }
 
 // ---[ Miss Shader ]---
@@ -24,5 +25,5 @@ void ShadowHit(inout ShadowInfo payload, Attributes attrib)
 void ShadowMiss(inout ShadowInfo payload)
 {
     //payload.ShadedColorAndHitT = float4(0.2f, 0.2f, 0.2f, -1.f);
-	payload.isVis = float4(1.f, 1.f, 1.f, 1.f);
+	payload.isVis = float4(0.f, 1.f, 0.f, 1.f);
 }

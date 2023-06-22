@@ -110,9 +110,11 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 
 	for (uint i = 0; i < 3; i++)
 	{
-		int address = (indices[i] * 5) * 4;
+		//int address = (indices[i] * 5) * 4;
+		int address = (indices[i] * 10) * 4;
 		v.position += asfloat(vertices.Load3(address)) * barycentrics[i];
-		address += (3 * 4); // this wont work anymore for uv because we swapped the Vertex structure
+		//address += (3 * 4); // this wont work anymore for uv because we swapped the Vertex structure
+		address += (8 * 4); // this wont work anymore for uv because we swapped the Vertex structure
 		v.uv += asfloat(vertices.Load2(address)) * barycentrics[i];
 	}
 

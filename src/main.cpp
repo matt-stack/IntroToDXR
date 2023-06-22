@@ -211,8 +211,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 		XMFLOAT4 tempvec{};
 		XMFLOAT4 tempvec_2{};
 
-		float yaw{};
-		float pitch{};
+		float yaw{260};
+		float pitch{10};
 
 		// Main loop
 		// https://gamedev.stackexchange.com/questions/192288/why-the-mouse-doesnt-move-in-mouse-look-feature-of-rpg-fps-games
@@ -281,29 +281,32 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 					if (pitch < -89.0f) {
 						pitch = -89.0f;
 					}
-
-					tempvec.x = cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
-					tempvec.y = sin(DirectX::XMConvertToRadians(pitch));
-					if (firstMouse)
-						tempvec.z = -1.f;
-					else 
-						tempvec.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
-
-					direction = XMLoadFloat4(&tempvec);
-
-			 		finalDirection= XMVector3Normalize(direction);
-
-					XMStoreFloat4(&tempvec_2, finalDirection);
-
-					mousex = tempvec_2.x;
-					mousey = tempvec_2.y;
-					mousez = tempvec_2.z;
-
 				}
 				break;
 			default:
 				break;
 			}
+
+			// convert to correct view
+
+
+
+			tempvec.x = cos(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+			tempvec.y = sin(DirectX::XMConvertToRadians(pitch));
+			if (firstMouse)
+				tempvec.z = -1.f;
+			else 
+				tempvec.z = sin(DirectX::XMConvertToRadians(yaw)) * cos(DirectX::XMConvertToRadians(pitch));
+
+			direction = XMLoadFloat4(&tempvec);
+
+			finalDirection= XMVector3Normalize(direction);
+
+			XMStoreFloat4(&tempvec_2, finalDirection);
+
+			mousex = tempvec_2.x;
+			mousey = tempvec_2.y;
+			mousez = tempvec_2.z;
 			
 			app.Update(movement, mousex, mousey, mousez);
 			app.Render();
@@ -315,6 +318,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
 #if defined _CRTDBG_MAP_ALLOC
 	_CrtDumpMemoryLeaks();
 #endif
+	//https://learn.microsoft.com/en-us/cpp/c-runtime-library/find-memory-leaks-using-the-crt-library?view=msvc-170
 
 	return hr;
 }

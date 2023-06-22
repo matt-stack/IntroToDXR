@@ -116,6 +116,8 @@ namespace DXR
 	void Create_DXR_Output(D3D12Global &d3d, D3D12Resources &resources);
 
 	void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);
+	void Set_Aftermath_Event_Marker(D3D12Global& d3d, const std::string& markerData, bool appManagedMarker);
+	auto Create_Marker_String_For_Frame(D3D12Global& d3d, const char* markerString);
 
 	void Destroy(DXRGlobal &dxr);
 }

@@ -30,6 +30,11 @@
 #include "Common.h"
 #include <memory>
 
+#if defined(USE_NSIGHT_AFTERMATH)
+#include "NsightAftermathGpuCrashTracker.h"
+#include <array>
+#endif
+
 //--------------------------------------------------------------------------------------
 // Helpers
 //--------------------------------------------------------------------------------------
@@ -225,9 +230,9 @@ struct D3D12ShaderInfo
 	LPCWSTR		targetProfile = nullptr;
 	//LPCWSTR*	arguments = nullptr;
 	//std::unique_ptr<LPCWSTR>	arguments = nullptr;
-	LPCWSTR*	arguments = nullptr;
+	std::vector<LPCWSTR> arguments;
 	DxcDefine*	defines = nullptr;
-	UINT32		argCount = 0;
+	UINT32		argCount = 0; // unused, instead use (uint32)arguments.size()
 	UINT32		defineCount = 0;
 
 	D3D12ShaderInfo() {}
@@ -240,15 +245,19 @@ struct D3D12ShaderInfo
 
 
 	// mstack adding constructor to pass debug
-	D3D12ShaderInfo(LPCWSTR inFilename, LPCWSTR inEntryPoint, LPCWSTR inProfile, LPCWSTR inDebug)
+	D3D12ShaderInfo(LPCWSTR inFilename, LPCWSTR inEntryPoint, LPCWSTR inProfile, bool debug)
 	{
 		filename = inFilename;
 		entryPoint = inEntryPoint;
 		targetProfile = inProfile;
 		//arguments = std::make_unique<LPCWSTR>(inDebug);
-		arguments = new LPCWSTR(L"-Zi");
-		//*arguments = inDebug;
-		argCount = 1;
+		arguments.push_back(L"-Zi");
+		arguments.push_back(L"-Od");
+		arguments.push_back(L"-T");
+		arguments.push_back(L"ps_6_6");
+		arguments.push_back(L"-Fo");
+		arguments.push_back(L"C:\\Users\\matts\\source\\repos\\IntroToDXR_my_fork\\test\\test.bin");
+		argCount = static_cast<UINT32>(arguments.size()); // not sure if this is needed
 	}
 };
 
@@ -312,6 +321,17 @@ struct D3D12Global
 	int												width = 640;
 	int												height = 360;
 	bool											vsync = false;
+
+
+#if defined(USE_NSIGHT_AFTERMATH)
+	// App-managed marker functionality
+	UINT64 m_frameCounter = 0; // techincally there is already a frame counter above
+	GpuCrashTracker::MarkerMap m_markerMap;
+
+	// Nsight Aftermath instrumentation
+	GFSDK_Aftermath_ContextHandle m_hAftermathCommandListContext;
+	GpuCrashTracker m_gpuCrashTracker{ m_markerMap };
+#endif
 };
 
 //--------------------------------------------------------------------------------------

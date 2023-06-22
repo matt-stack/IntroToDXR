@@ -40,6 +40,8 @@
 #include <shellapi.h>
 #include <unordered_map>
 
+#include <comdef.h>
+
 
 namespace std
 {
@@ -154,7 +156,12 @@ void Validate(HRESULT hr, LPWSTR msg)
 {
 	if (FAILED(hr))
 	{
-		MessageBox(NULL, msg, L"Error", MB_OK);
+
+
+		_com_error err(hr);
+		LPCTSTR errMsg = err.ErrorMessage();
+		//MessageBox(NULL, msg, L"Error", MB_OK);
+		MessageBox(NULL, errMsg, L"Error", MB_OK);
 		PostQuitMessage(EXIT_FAILURE);
 	}
 }
