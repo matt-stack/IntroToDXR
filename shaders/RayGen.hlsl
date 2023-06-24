@@ -59,7 +59,7 @@ void RayGen()
 		ray,
 		payload);
 
-
+/*
 	// Setup Shadow Ray
 	RayDesc shadowRay;
 	shadowRay.Origin = float3(1.f, 1.f, 1.f);
@@ -99,8 +99,8 @@ void RayGen()
 		//finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
 		//finalColor = float3( 0.f, 0.f, 1.f);
 	}
-		
+		*/
 
-	//RTOutput[LaunchIndex.xy] = float4(payload.ShadedColorAndHitT.rgb, 1.f);
-	RTOutput[LaunchIndex.xy] = float4(finalColor.rgb, 1.f);
+	RTOutput[LaunchIndex.xy] = float4(payload.ShadedColorAndHitT.rgb, 1.f);
+//	RTOutput[LaunchIndex.xy] = float4(finalColor.rgb, 1.f);
 }

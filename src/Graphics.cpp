@@ -210,29 +210,6 @@ void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &mo
 	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
 }
 
-void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model) 
-{
-	// Create the vertex buffer resource
-	D3D12BufferCreateInfo info(((UINT)model.vertices.size() * sizeof(VertexNorms)), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	Create_Buffer(d3d, info, &resources.vertexBuffer);
-#if NAME_D3D_RESOURCES
-	resources.vertexBuffer->SetName(L"Vertex Buffer");
-#endif
-
-	// Copy the vertex data to the vertex buffer
-	UINT8* pVertexDataBegin;
-	D3D12_RANGE readRange = {};
-	HRESULT hr = resources.vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-	Utils::Validate(hr, L"Error: failed to map vertex buffer!");
-
-	memcpy(pVertexDataBegin, model.vertices.data(), info.size);
-	resources.vertexBuffer->Unmap(0, nullptr);
-
-	// Initialize the vertex buffer view
-	resources.vertexBufferView.BufferLocation = resources.vertexBuffer->GetGPUVirtualAddress();
-	resources.vertexBufferView.StrideInBytes = sizeof(VertexNorms);
-	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
-}
 
 /**
 * Create the index buffer.
@@ -261,29 +238,6 @@ void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &mod
 	resources.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
 }
 
-void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, ModelNorms &model) 
-{
-	// Create the index buffer resource
-	D3D12BufferCreateInfo info((UINT)model.indices.size() * sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	Create_Buffer(d3d, info, &resources.indexBuffer);
-#if NAME_D3D_RESOURCES
-	resources.indexBuffer->SetName(L"Index Buffer");
-#endif
-
-	// Copy the index data to the index buffer
-	UINT8* pIndexDataBegin;
-	D3D12_RANGE readRange = {};
-	HRESULT hr = resources.indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
-	Utils::Validate(hr, L"Error: failed to map index buffer!");
-
-	memcpy(pIndexDataBegin, model.indices.data(), info.size);
-	resources.indexBuffer->Unmap(0, nullptr);
-
-	// Initialize the index buffer view
-	resources.indexBufferView.BufferLocation = resources.indexBuffer->GetGPUVirtualAddress();
-	resources.indexBufferView.SizeInBytes = static_cast<UINT>(info.size);
-	resources.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-}
 
 /*
 * Create a constant buffer.
@@ -706,23 +660,24 @@ void Load_PIX() {
 void Create_Device(D3D12Global &d3d)
 {
 
-//#if defined(_DEBUG)
-#if 0
+#if defined(_DEBUG)
+//#if 0
 	// Enable the D3D12 debug layer.
 	{
 		ID3D12Debug* debugController;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
 		{
-			debugController->EnableDebugLayer();
+		//	debugController->EnableDebugLayer();
 		}
 	}
-
+/*
 	CComPtr<ID3D12DeviceRemovedExtendedDataSettings> pDredSettings;
 	SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&pDredSettings)));
 
 	// Turn on auto-breadcrumbs and page fault reporting.
 	pDredSettings->SetAutoBreadcrumbsEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
 	pDredSettings->SetPageFaultEnablement(D3D12_DRED_ENABLEMENT_FORCED_ON);
+	*/
 #endif
 
 
@@ -1104,6 +1059,7 @@ namespace DXR
 		geometryDesc.Triangles.IndexCount = static_cast<UINT>(model.indices.size());
 		geometryDesc.Triangles.Transform3x4 = 0;
 		geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
+		//geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE; // mstack: This if you want the Any Hit shader!
 
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
@@ -1151,71 +1107,7 @@ namespace DXR
 		uavBarrier.UAV.pResource = dxr.BLAS.pResult;
 		uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
 		d3d.cmdList->ResourceBarrier(1, &uavBarrier);
-	}
-
-
-	void Create_Bottom_Level_AS(D3D12Global& d3d, DXRGlobal& dxr, D3D12Resources& resources, ModelNorms& model)
-	{
-		// Describe the geometry that goes in the bottom acceleration structure(s)
-		D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc;
-		geometryDesc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		geometryDesc.Triangles.VertexBuffer.StartAddress = resources.vertexBuffer->GetGPUVirtualAddress();
-		geometryDesc.Triangles.VertexBuffer.StrideInBytes = resources.vertexBufferView.StrideInBytes;
-		geometryDesc.Triangles.VertexCount = static_cast<UINT>(model.vertices.size());
-		geometryDesc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
-		geometryDesc.Triangles.IndexBuffer = resources.indexBuffer->GetGPUVirtualAddress();
-		geometryDesc.Triangles.IndexFormat = resources.indexBufferView.Format;
-		geometryDesc.Triangles.IndexCount = static_cast<UINT>(model.indices.size());
-		geometryDesc.Triangles.Transform3x4 = 0;
-		geometryDesc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;
-
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS buildFlags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
-
-		// Get the size requirements for the BLAS buffers
-		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS ASInputs = {};
-		ASInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-		ASInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
-		ASInputs.pGeometryDescs = &geometryDesc;
-		ASInputs.NumDescs = 1;
-		ASInputs.Flags = buildFlags;
-
-		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO ASPreBuildInfo = {};
-		d3d.device->GetRaytracingAccelerationStructurePrebuildInfo(&ASInputs, &ASPreBuildInfo);
-
-		ASPreBuildInfo.ScratchDataSizeInBytes = ALIGN(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, ASPreBuildInfo.ScratchDataSizeInBytes);
-		ASPreBuildInfo.ResultDataMaxSizeInBytes = ALIGN(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, ASPreBuildInfo.ResultDataMaxSizeInBytes);
-
-		// Create the BLAS scratch buffer
-		D3D12BufferCreateInfo bufferInfo(ASPreBuildInfo.ScratchDataSizeInBytes, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		bufferInfo.alignment = max(D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BYTE_ALIGNMENT, D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT);
-		D3DResources::Create_Buffer(d3d, bufferInfo, &dxr.BLAS.pScratch);
-#if NAME_D3D_RESOURCES
-		dxr.BLAS.pScratch->SetName(L"DXR BLAS Scratch");
-#endif
-
-		// Create the BLAS buffer
-		bufferInfo.size = ASPreBuildInfo.ResultDataMaxSizeInBytes;
-		bufferInfo.state = D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE;
-		D3DResources::Create_Buffer(d3d, bufferInfo, &dxr.BLAS.pResult);
-#if NAME_D3D_RESOURCES
-		dxr.BLAS.pResult->SetName(L"DXR BLAS");
-#endif
-
-		// Describe and build the bottom level acceleration structure
-		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC buildDesc = {};
-		buildDesc.Inputs = ASInputs;
-		buildDesc.ScratchAccelerationStructureData = dxr.BLAS.pScratch->GetGPUVirtualAddress();
-		buildDesc.DestAccelerationStructureData = dxr.BLAS.pResult->GetGPUVirtualAddress();
-
-		d3d.cmdList->BuildRaytracingAccelerationStructure(&buildDesc, 0, nullptr);
-
-		// Wait for the BLAS build to complete
-		D3D12_RESOURCE_BARRIER uavBarrier;
-		uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-		uavBarrier.UAV.pResource = dxr.BLAS.pResult;
-		uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		d3d.cmdList->ResourceBarrier(1, &uavBarrier);
-	}
+	} 
 
 	/**
 	* Create the top level acceleration structure and its associated buffers.
@@ -1659,7 +1551,7 @@ namespace DXR
 
 		// Add a state subobject for the ray tracing pipeline config
 		D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
-		pipelineConfig.MaxTraceRecursionDepth = 1; // mstack: this stays at one , GI multiple bounces loop in ray gen
+		pipelineConfig.MaxTraceRecursionDepth = 3 ; // mstack: this stays at one , GI multiple bounces loop in ray gen
 
 		D3D12_STATE_SUBOBJECT pipelineConfigObject = {};
 		pipelineConfigObject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;

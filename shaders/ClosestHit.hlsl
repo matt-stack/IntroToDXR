@@ -46,42 +46,42 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	// Setup Shadow Ray
 	RayDesc shadowRay;
 	shadowRay.Origin = worldRayHit;
-	float4 mainLight = float4(5.f, 5.f, 5.f, 1.f);
-	shadowRay.Direction = normalize(mainLight.xyz - worldRayHit);
+	//shadowRay.Origin = float3(0.f, 0.f, 0.f);
+	float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
+	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
 	//shadowRay.Direction = float3(1.f, 1.f, 1.f);
 
-	shadowRay.TMin = 0.1f;
-	shadowRay.TMax = 10.f;	
+	shadowRay.TMin = 0.001f;
+	shadowRay.TMax = 1000.f;	
 	
 	// Trace the ray
 	ShadowInfo shadowPayload;
 	shadowPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
-/*
+
 	TraceRay(
 		SceneBVH,
-		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
-		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
+		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
+		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
 		0xFF,
-		0,
+		1, // this does not actually use a hit group, because Opaque geom and null CHS
 		2,
-		0,
+		1,
 		shadowRay,
 		shadowPayload);
-		*/
+		
 
 	float3 finalColor;
 
 	//RGB + shadow contribution
 
 	if (shadowPayload.isVis.x == 1.f) {
-		finalColor = float3( RGB.x * 1., RGB.y * 1., RGB.z * 1. );
+		finalColor =  float3( RGB.x * 1.f, RGB.y * 1.f, RGB.z * 1.f );
 	}
-	else { 
-		finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
-		//finalColor = float3( 0.f, 0.f, 1.f);
+	else {
+		finalColor = float3( RGB.x * 0.5f, RGB.y * 0.5f, RGB.z * 0.5f );
 	}
 		
 	
-//	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
-	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
+	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
+//	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
 }
