@@ -175,7 +175,7 @@ struct MyMaterialCB
 
 struct miscBuffer
 {
-	DirectX::XMFLOAT2 Rg = { 1, 0};
+	DirectX::XMFLOAT4 Rg = { 0., 0., 0., 0.};
 	DirectX::XMFLOAT2 rG = { 0, 1};
 	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
 	DirectX::XMFLOAT2 rGe = { 0, 1 };

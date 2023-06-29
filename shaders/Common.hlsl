@@ -60,7 +60,7 @@ cbuffer MyMaterialCB : register(b2)
 
 cbuffer miscBuffer : register(b3)
 {
-	float2 Rg;// = { 1, 0};
+	float4 Rg;// = { framecounter, 0, 0, 0};
 	float2 rG;// = { 0, 1};
 	float3 rgB;// = { 0, 0, 1 };
 //	float1 one;
@@ -122,13 +122,13 @@ VertexAttributes GetVertexAttributes(uint triangleIndex, float3 barycentrics)
 }
 
 
-TriangleVertex GetVertexPos(uint triangleIndex)
+TriangleVertex GetVertexNormals(uint triangleIndex)
 // visualize vertex normals
 {
 	uint3 indices = GetIndices(triangleIndex);
 	TriangleVertex v;
 
-	int testing_address1 = indices[0] * (10 * 4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the Normals member)
+	int testing_address1 = indices[0] * (10 * 4) + (3*4); // 10 floats (size of the vertex struct) + (offset into the Normals member)
 	int testing_address2 = indices[1] * (10 * 4) + (3*4); // these offset into the Normals field!
 	int testing_address3 = indices[2] * (10 * 4) + (3*4);
 	TriangleVertex vn;
@@ -137,6 +137,12 @@ TriangleVertex GetVertexPos(uint triangleIndex)
 	vn.thirdVert =  asfloat(vertices.Load3(testing_address3));
 
 	return vn;
+}
+
+float3 barycentricNormal(float u, float v, TriangleVertex vn) {
+	// uv should be from Attributes from CHS, split up
+	// u, v, 1-u-v
+	return (u * vn.firstVert + v * vn.secondVert + (1 - u - v) * vn.thirdVert);
 }
 
 
@@ -176,8 +182,6 @@ float3 CalculateSurfaceNormal(TriangleVertex tri) {
 	float3 v = tri.thirdVert - tri.firstVert;
 
 	float3 normal = normalize(cross(u, v));
-	//float3 normal = cross(u, v);
-//	float3 normal = cross(v, u);
 
 	return normal;
 }
@@ -186,6 +190,7 @@ float3 CalculateSurfaceNormal(TriangleVertex tri) {
 
 struct ShadowInfo {
 	float4 isVis; // 1 for visible, 0 for in shadow
+	// this is currently float4 when it does not have to be, because testing
 };
 
 struct Light {
@@ -199,3 +204,141 @@ Btw, this looks like a good Vulkan tutorial if ever needed
 https://github.com/SaschaWillems/Vulkan/tree/master/data/shaders/glsl/raytracingshadows
 
 */
+
+
+// next four functions are academically stolen from Chris Wymans Intro to DXR presentation :)
+// Generates a seed for a random number generator from 2 inputs plus a backoff
+uint initRand(uint val0, uint val1, uint backoff = 16)
+{
+	uint v0 = val0, v1 = val1, s0 = 0;
+
+	[unroll]
+	for (uint n = 0; n < backoff; n++)
+	{
+		s0 += 0x9e3779b9;
+		v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
+		v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
+	}
+	return v0;
+}
+
+// Takes our seed, updates it, and returns a pseudorandom float in [0..1]
+float nextRand(inout uint s)
+{
+	s = (1664525u * s + 1013904223u);
+	return float(s & 0x00FFFFFF) / float(0x01000000);
+}
+
+// Utility function to get a vector perpendicular to an input vector 
+//    (from "Efficient Construction of Perpendicular Vectors Without Branching")
+float3 getPerpendicularVector(float3 u)
+{
+	float3 a = abs(u);
+	uint xm = ((a.x - a.y) < 0 && (a.x - a.z) < 0) ? 1 : 0;
+	uint ym = (a.y - a.z) < 0 ? (1 ^ xm) : 0;
+	uint zm = 1 ^ (xm | ym);
+	return cross(u, float3(xm, ym, zm));
+}
+
+// Get a cosine-weighted random vector centered around a specified normal direction.
+float3 getCosHemisphereSample(inout uint randSeed, float3 hitNorm)
+{
+	// Get 2 random numbers to select our sample with
+	float2 randVal = float2(nextRand(randSeed), nextRand(randSeed));
+
+	// new coord system is normal, bitangent and tangent as axes
+
+	// Cosine weighted hemisphere sample from RNG
+	float3 bitangent = getPerpendicularVector(hitNorm);
+	float3 tangent = cross(bitangent, hitNorm);
+	float r = sqrt(randVal.x);
+	float phi = 2.0f * 3.14159265f * randVal.y;
+
+	// Get our cosine-weighted hemisphere lobe sample direction
+	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(1 - randVal.x);
+}
+
+// ----------------- [SHADOWS]-------------------
+
+// traceShadow return float (from shadowpayload) because we only want to know if its occluded
+float traceShadow() {
+	float occlusion_val;
+
+	// Setup Shadow Ray
+	RayDesc shadowRay;
+	shadowRay.Origin = worldHitPosition();
+	//shadowRay.Origin = float3(0.f, 0.f, 0.f);
+	float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
+	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
+	//shadowRay.Direction = float3(1.f, 1.f, 1.f);
+
+	shadowRay.TMin = 0.01f;
+	shadowRay.TMax = 100.f;	
+	
+	// Trace the ray
+	ShadowInfo shadowPayload;
+	shadowPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
+
+	TraceRay(
+		SceneBVH,
+		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
+		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+		0xFF,
+		1, // this does not actually use a hit group, because Opaque geom and null CHS
+		2,
+		1,
+		shadowRay,
+		shadowPayload);
+
+	occlusion_val = shadowPayload.isVis.x;
+
+	return occlusion_val;
+}
+
+// ------------------- [AO]----------------------
+// uses shadow miss and any_hit (it doesnt actually use any_hit / hit group because )
+float traceAO(float3 barcentric_normal, int num_rays=1024, float AO_range=2.f) {
+	float AO_val = 0.f;
+
+	// Where is this thread's ray on screen? similar to threadIdx.x and BlockDim.x?
+	uint2 launchIndex = DispatchRaysIndex();
+	uint2 launchDim = DispatchRaysDimensions();
+
+	// Initialize a random seed, per-pixel, based on a screen position and temporally varying count
+	uint randSeed = initRand(launchIndex.x + launchIndex.y * launchDim.x, Rg.x, 16);
+
+	for (int i = 0; i < num_rays; i++) {
+
+		float3 worldDir = getCosHemisphereSample(randSeed, barcentric_normal);
+
+		// Setup AO Ray
+		RayDesc AORay;
+		AORay.Origin = worldHitPosition();
+		AORay.Direction = worldDir;
+		//AORay.Direction = normalize(worldDir - AORay.Origin); // WorldDir is already a direction, dont need this
+
+		AORay.TMin = 0.000001f;
+		AORay.TMax = AO_range;	
+	
+		// Trace the ray
+		ShadowInfo AOPayload;
+		AOPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
+
+		TraceRay(
+			SceneBVH,
+			RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
+			RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
+			0xFF,
+			1, // this does not actually use a hit group, because Opaque geom and null CHS
+			2,
+			1,
+			AORay,
+			AOPayload);
+
+		AO_val += AOPayload.isVis.x;
+	}
+
+	AO_val /= (float)num_rays;
+
+	return AO_val; // normalized by num_rays
+}

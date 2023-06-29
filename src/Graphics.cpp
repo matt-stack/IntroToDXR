@@ -338,9 +338,11 @@ void Create_MiscBuffer_CB(D3D12Global& d3d, D3D12Resources& resources) {
 	resources.miscBufferCB->SetName(L"Misc Buffer Constant Buffer");
 #endif
 
+	resources.miscBufferData.Rg.x = d3d.frameIndex;
+
 	HRESULT hr = resources.miscBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.miscBufferCBStart));
 	Utils::Validate(hr, L"Error: failed to map misc buffer constant buffer!");
-
+	
 	memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
 }
 

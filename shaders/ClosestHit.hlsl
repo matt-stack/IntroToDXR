@@ -35,51 +35,31 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	uint triangleIndex = PrimitiveIndex();
 	float3 barycentrics = float3((1.0f - attrib.uv.x - attrib.uv.y), attrib.uv.x, attrib.uv.y); // w, u, v 
 	VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
-	TriangleVertex triVerts = GetVertexPos(triangleIndex);
+	TriangleVertex triVerts = GetVertexNormals(triangleIndex);
+	float3 barcentric_normal = barycentricNormal(attrib.uv.x, attrib.uv.y, triVerts);
 
 	float3 worldRayHit = worldHitPosition();
 
-	float3 color = triVerts.firstVert;
-
 	int mat = GetMaterialId(triangleIndex);
 	float3 RGB = GetMaterialDiffuse(mat);
-	// Setup Shadow Ray
-	RayDesc shadowRay;
-	shadowRay.Origin = worldRayHit;
-	//shadowRay.Origin = float3(0.f, 0.f, 0.f);
-	float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
-	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
-	//shadowRay.Direction = float3(1.f, 1.f, 1.f);
 
-	shadowRay.TMin = 0.001f;
-	shadowRay.TMax = 1000.f;	
-	
-	// Trace the ray
-	ShadowInfo shadowPayload;
-	shadowPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
+	float occlusion_val = traceShadow();
 
-	TraceRay(
-		SceneBVH,
-		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
-		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH,
-		0xFF,
-		1, // this does not actually use a hit group, because Opaque geom and null CHS
-		2,
-		1,
-		shadowRay,
-		shadowPayload);
-		
+	float AO_val = traceAO(barcentric_normal);
 
 	float3 finalColor;
 
 	//RGB + shadow contribution
 
-	if (shadowPayload.isVis.x == 1.f) {
+	//if (shadowPayload.isVis.x == 1.f) {
+	if (occlusion_val == 1.f) {
 		finalColor =  float3( RGB.x * 1.f, RGB.y * 1.f, RGB.z * 1.f );
 	}
 	else {
 		finalColor = float3( RGB.x * 0.5f, RGB.y * 0.5f, RGB.z * 0.5f );
 	}
+
+	finalColor *= AO_val;
 		
 	
 	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
