@@ -88,11 +88,10 @@ public:
 		D3DResources::Create_MiscBuffer_CB(d3d, resources);
 		
 		// Create DXR specific resources
-		//DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
 		DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
 		DXR::Create_Top_Level_AS(d3d, dxr, resources);
 		DXR::Create_DXR_Output(d3d, resources);
-		//DXR::Create_Descriptor_Heaps(d3d, dxr, resources, model);	
+		DXR::Create_DXR_Acc_Buffer(d3d, resources);
 		DXR::Create_Descriptor_Heaps(d3d, dxr, resources, model);	
 		DXR::Create_RayGen_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Miss_Program(d3d, dxr, shaderCompiler);
@@ -113,6 +112,10 @@ public:
 	void Update(float movement, float mousex, float mousey, float mousez) 
 	{
 		D3DResources::Update_View_CB(d3d, resources, movement, mousex, mousey, mousez);
+
+
+		D3DResources::Update_Misc_CB(d3d, resources);
+
 	}
 
 	void Render() 

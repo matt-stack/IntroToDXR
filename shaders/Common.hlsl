@@ -60,8 +60,10 @@ cbuffer MyMaterialCB : register(b2)
 
 cbuffer miscBuffer : register(b3)
 {
-	float4 Rg;// = { framecounter, 0, 0, 0};
-	float2 rG;// = { 0, 1};
+	float4 frame_counter;// = { framecounter, 0, 0, 0};
+	float2 has_moved;// = { 0, 1} 
+	//x: 1 for moved, dont acculmulate, 0 for has not moved, accululatate
+	//y: acc counter
 	float3 rgB;// = { 0, 0, 1 };
 //	float1 one;
 	float2 rGe;// = { 0, 1 };
@@ -72,6 +74,7 @@ cbuffer miscBuffer : register(b3)
 // ---[ Resources ]---
 
 RWTexture2D<float4> RTOutput				: register(u0);
+RWTexture2D<float4> RTAccBuffer				: register(u1);
 RaytracingAccelerationStructure SceneBVH	: register(t0);
 
 ByteAddressBuffer indices					: register(t1);
@@ -79,6 +82,11 @@ ByteAddressBuffer vertices					: register(t2); // where does this come from?
 Texture2D<float4> albedo					: register(t3);
 
 // ---[ Helper Functions ]---
+
+bool equals(float3 t1, float3 t2) {
+	return (t1.x == t2.x && t1.y == t2.y && t1.z == t2.z);
+
+}
 
 struct VertexAttributes
 {
@@ -151,6 +159,7 @@ int GetMaterialId(uint triangleIndex)
 {
 	uint3 indices = GetIndices(triangleIndex);
 
+	//int testing_address1 = indices[0] * (10 * 4) + (3*4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the mat ID member)
 	int testing_address1 = indices[0] * (10 * 4) + (3*4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the mat ID member)
 	//int testing_address1 = indices[0] + (3*4) + (3*4); // 8 floats (size of the vertex struct) + (offset into the mat ID member)
 	int matID =  asint(vertices.Load(testing_address1));
@@ -268,11 +277,13 @@ float traceShadow() {
 	RayDesc shadowRay;
 	shadowRay.Origin = worldHitPosition();
 	//shadowRay.Origin = float3(0.f, 0.f, 0.f);
-	float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
+	//float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
+	//float4 mainLight = float4(2.f, 5.f, 0.f, 1.f); // this is good front on light from angle
+	float4 mainLight = float4(5.f, -20.f, 0.f, 1.f); 
 	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
-	//shadowRay.Direction = float3(1.f, 1.f, 1.f);
+	//shadowRay.Direction = float3(5.f, -5.f, 5.f);
 
-	shadowRay.TMin = 0.01f;
+	shadowRay.TMin = 0.00001f;
 	shadowRay.TMax = 100.f;	
 	
 	// Trace the ray
@@ -297,7 +308,8 @@ float traceShadow() {
 
 // ------------------- [AO]----------------------
 // uses shadow miss and any_hit (it doesnt actually use any_hit / hit group because )
-float traceAO(float3 barcentric_normal, int num_rays=1024, float AO_range=2.f) {
+float traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=2.f) {
+//float3 traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=2.f) {
 	float AO_val = 0.f;
 
 	// Where is this thread's ray on screen? similar to threadIdx.x and BlockDim.x?
@@ -305,8 +317,9 @@ float traceAO(float3 barcentric_normal, int num_rays=1024, float AO_range=2.f) {
 	uint2 launchDim = DispatchRaysDimensions();
 
 	// Initialize a random seed, per-pixel, based on a screen position and temporally varying count
-	uint randSeed = initRand(launchIndex.x + launchIndex.y * launchDim.x, Rg.x, 16);
+	uint randSeed = initRand(launchIndex.x + launchIndex.y * launchDim.x, frame_counter.x, 16);
 
+//	float3 worldDir_T = getCosHemisphereSample(randSeed, barcentric_normal);
 	for (int i = 0; i < num_rays; i++) {
 
 		float3 worldDir = getCosHemisphereSample(randSeed, barcentric_normal);
@@ -315,6 +328,7 @@ float traceAO(float3 barcentric_normal, int num_rays=1024, float AO_range=2.f) {
 		RayDesc AORay;
 		AORay.Origin = worldHitPosition();
 		AORay.Direction = worldDir;
+		//AORay.Direction = float3(5.f, -15.f, 0.f);
 		//AORay.Direction = normalize(worldDir - AORay.Origin); // WorldDir is already a direction, dont need this
 
 		AORay.TMin = 0.000001f;
@@ -339,6 +353,11 @@ float traceAO(float3 barcentric_normal, int num_rays=1024, float AO_range=2.f) {
 	}
 
 	AO_val /= (float)num_rays;
+	//AO_val = 0.2f;
+
+//	float3 vis_rand_direction = worldDir_T;
+
+//	return (vis_rand_direction + 1) / 2;
 
 	return AO_val; // normalized by num_rays
 }

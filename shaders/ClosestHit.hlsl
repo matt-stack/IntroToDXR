@@ -36,7 +36,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	float3 barycentrics = float3((1.0f - attrib.uv.x - attrib.uv.y), attrib.uv.x, attrib.uv.y); // w, u, v 
 	VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
 	TriangleVertex triVerts = GetVertexNormals(triangleIndex);
-	float3 barcentric_normal = barycentricNormal(attrib.uv.x, attrib.uv.y, triVerts);
+	float3 barycentric_normal = barycentricNormal(attrib.uv.x, attrib.uv.y, triVerts);
 
 	float3 worldRayHit = worldHitPosition();
 
@@ -45,7 +45,8 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 
 	float occlusion_val = traceShadow();
 
-	float AO_val = traceAO(barcentric_normal);
+	float AO_val = traceAO(barycentric_normal);
+	//float3 AO_val = traceAO(barycentric_normal);
 
 	float3 finalColor;
 
@@ -60,8 +61,14 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	}
 
 	finalColor *= AO_val;
-		
-	
+
+	// visualize normals
+//	float3 normals = (barycentric_normal + 1) / 2;
+
+	// visualize RayTCurrent, good for debugging
+//	finalColor = float3((RayTCurrent() / 10.f), 0.f, 0.f);
+
 	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
-//	payload.ShadedColorAndHitT = float4(RGB.xyz, RayTCurrent());
+//	payload.ShadedColorAndHitT = float4(AO_val.xyz, RayTCurrent());
+//	payload.ShadedColorAndHitT = float4(normals.xyz, RayTCurrent());
 }

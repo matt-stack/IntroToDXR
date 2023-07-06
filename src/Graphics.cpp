@@ -59,429 +59,456 @@ using Microsoft::WRL::ComPtr;
 namespace D3DResources
 {
 
-/**
-* Create a GPU buffer resource.
-*/
-void Create_Buffer(D3D12Global &d3d, D3D12BufferCreateInfo& info, ID3D12Resource** ppResource)
-{
-	D3D12_HEAP_PROPERTIES heapDesc = {};
-	heapDesc.Type = info.heapType;
-	heapDesc.CreationNodeMask = 1;
-	heapDesc.VisibleNodeMask = 1;
-
-	D3D12_RESOURCE_DESC resourceDesc = {};
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-	resourceDesc.Alignment = info.alignment;
-	resourceDesc.Height = 1;
-	resourceDesc.DepthOrArraySize = 1;
-	resourceDesc.MipLevels = 1;
-	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resourceDesc.SampleDesc.Count = 1;
-	resourceDesc.SampleDesc.Quality = 0;
-	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	resourceDesc.Width = info.size; // is this the new ByteWidth?
-	resourceDesc.Flags = info.flags;
-
-	// Create the GPU resource
-	HRESULT hr = d3d.device->CreateCommittedResource(&heapDesc, D3D12_HEAP_FLAG_NONE, &resourceDesc, info.state, nullptr, IID_PPV_ARGS(ppResource));
-	Utils::Validate(hr, L"Error: failed to create buffer resource!");
-}
-
-/**
-* Create a texture.
-*/
-void Create_Texture(D3D12Global &d3d, D3D12Resources &resources, Material &material) 
-{
-	// Load the texture
-	TextureInfo texture = Utils::LoadTexture(material.texturePath);
-	material.textureResolution = static_cast<float>(texture.width);
-
-	// Describe the texture
-	D3D12_RESOURCE_DESC textureDesc = {};
-	textureDesc.Width = texture.width;
-	textureDesc.Height = texture.height;
-	textureDesc.MipLevels = 1;
-	textureDesc.DepthOrArraySize = 1;
-	textureDesc.SampleDesc.Count = 1;
-	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-	// Create the texture resource
-	HRESULT hr = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &textureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resources.texture));
-	Utils::Validate(hr, L"Error: failed to create texture!");
-#if NAME_D3D_RESOURCES
-	resources.texture->SetName(L"Texture");
-#endif
-
-	// Describe the resource
-	D3D12_RESOURCE_DESC resourceDesc = {};
-	resourceDesc.Width = (texture.width * texture.height * texture.stride);
-	resourceDesc.Height = 1;
-	resourceDesc.DepthOrArraySize = 1;
-	resourceDesc.MipLevels = 1;
-	resourceDesc.SampleDesc.Count = 1;
-	resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
-	resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-
-	// Create the upload heap
-	hr = d3d.device->CreateCommittedResource(&UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resources.textureUploadResource));
-	Utils::Validate(hr, L"Error: failed to create texture upload heap!");
-#if NAME_D3D_RESOURCES
-	resources.textureUploadResource->SetName(L"Texture Upload Buffer");
-#endif
-
-	// Upload the texture to the GPU
-	Upload_Texture(d3d, resources.texture, resources.textureUploadResource, texture);
-}
-
-/**
- * Copy a texture from the CPU to the GPU upload heap, then schedule a copy to the default heap.
- */
-void Upload_Texture(D3D12Global &d3d, ID3D12Resource* destResource, ID3D12Resource* srcResource, const TextureInfo &texture)
-{
-	// Copy the pixel data to the upload heap resource
-	UINT8* pData;
-	HRESULT hr = srcResource->Map(0, nullptr, reinterpret_cast<void**>(&pData));
-	memcpy(pData, texture.pixels.data(), texture.width * texture.height * texture.stride);
-	srcResource->Unmap(0, nullptr);
-
-	// Describe the upload heap resource location for the copy
-	D3D12_SUBRESOURCE_FOOTPRINT subresource = {};
-	subresource.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	subresource.Width = texture.width;
-	subresource.Height = texture.height;
-	subresource.RowPitch = (texture.width * texture.stride);
-	subresource.Depth = 1;
-
-	D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
-	footprint.Offset = texture.offset;
-	footprint.Footprint = subresource;
-
-	D3D12_TEXTURE_COPY_LOCATION source = {};
-	source.pResource = srcResource;
-	source.PlacedFootprint = footprint;
-	source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-
-	// Describe the default heap resource location for the copy
-	D3D12_TEXTURE_COPY_LOCATION destination = {};
-	destination.pResource = destResource;
-	destination.SubresourceIndex = 0;
-	destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-
-	// Copy the buffer resource from the upload heap to the texture resource on the default heap
-	d3d.cmdList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
-
-	// Transition the texture to a shader resource
-	D3D12_RESOURCE_BARRIER barrier = {};
-	barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-	barrier.Transition.pResource = destResource;
-	barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
-	barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-	d3d.cmdList->ResourceBarrier(1, &barrier);
-}
-
-/*
-* Create the vertex buffer.
-*/
-void Create_Vertex_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &model) 
-{
-	// Create the vertex buffer resource
-	D3D12BufferCreateInfo info(((UINT)model.vertices.size() * sizeof(Vertex)), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	Create_Buffer(d3d, info, &resources.vertexBuffer);
-#if NAME_D3D_RESOURCES
-	resources.vertexBuffer->SetName(L"Vertex Buffer");
-#endif
-
-	// Copy the vertex data to the vertex buffer
-	UINT8* pVertexDataBegin;
-	D3D12_RANGE readRange = {};
-	HRESULT hr = resources.vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
-	Utils::Validate(hr, L"Error: failed to map vertex buffer!");
-
-	memcpy(pVertexDataBegin, model.vertices.data(), info.size);
-	resources.vertexBuffer->Unmap(0, nullptr);
-
-	// Initialize the vertex buffer view
-	resources.vertexBufferView.BufferLocation = resources.vertexBuffer->GetGPUVirtualAddress();
-	resources.vertexBufferView.StrideInBytes = sizeof(Vertex); //32 bytes
-	resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
-}
-
-
-/**
-* Create the index buffer.
-*/
-void Create_Index_Buffer(D3D12Global &d3d, D3D12Resources &resources, Model &model) 
-{
-	// Create the index buffer resource
-	D3D12BufferCreateInfo info((UINT)model.indices.size() * sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	Create_Buffer(d3d, info, &resources.indexBuffer);
-#if NAME_D3D_RESOURCES
-	resources.indexBuffer->SetName(L"Index Buffer");
-#endif
-
-	// Copy the index data to the index buffer
-	UINT8* pIndexDataBegin;
-	D3D12_RANGE readRange = {};
-	HRESULT hr = resources.indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
-	Utils::Validate(hr, L"Error: failed to map index buffer!");
-
-	memcpy(pIndexDataBegin, model.indices.data(), info.size);
-	resources.indexBuffer->Unmap(0, nullptr);
-
-	// Initialize the index buffer view
-	resources.indexBufferView.BufferLocation = resources.indexBuffer->GetGPUVirtualAddress();
-	resources.indexBufferView.SizeInBytes = static_cast<UINT>(info.size);
-	resources.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-}
-
-
-/*
-* Create a constant buffer.
-*/
-void Create_Constant_Buffer(D3D12Global &d3d, ID3D12Resource** buffer, UINT64 size) 
-{
-	D3D12BufferCreateInfo bufferInfo((size + 255) & ~255, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	Create_Buffer(d3d, bufferInfo, buffer);
-}
-
-/**
-* Create the back buffer's RTV view.
-*/
-void Create_BackBuffer_RTV(D3D12Global &d3d, D3D12Resources &resources)
-{
-	HRESULT hr;
-	D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
-
-	rtvHandle = resources.rtvHeap->GetCPUDescriptorHandleForHeapStart();
-
-	// Create a RTV for each back buffer
-	for (UINT n = 0; n < 2; n++)
+	/**
+	* Create a GPU buffer resource.
+	*/
+	void Create_Buffer(D3D12Global& d3d, D3D12BufferCreateInfo& info, ID3D12Resource** ppResource)
 	{
-		hr = d3d.swapChain->GetBuffer(n, IID_PPV_ARGS(&d3d.backBuffer[n]));
-		Utils::Validate(hr, L"Error: failed to get swap chain buffer!");
+		D3D12_HEAP_PROPERTIES heapDesc = {};
+		heapDesc.Type = info.heapType;
+		heapDesc.CreationNodeMask = 1;
+		heapDesc.VisibleNodeMask = 1;
 
-		d3d.device->CreateRenderTargetView(d3d.backBuffer[n], nullptr, rtvHandle);
+		D3D12_RESOURCE_DESC resourceDesc = {};
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+		resourceDesc.Alignment = info.alignment;
+		resourceDesc.Height = 1;
+		resourceDesc.DepthOrArraySize = 1;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		resourceDesc.SampleDesc.Count = 1;
+		resourceDesc.SampleDesc.Quality = 0;
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resourceDesc.Width = info.size; // is this the new ByteWidth?
+		resourceDesc.Flags = info.flags;
 
+		// Create the GPU resource
+		HRESULT hr = d3d.device->CreateCommittedResource(&heapDesc, D3D12_HEAP_FLAG_NONE, &resourceDesc, info.state, nullptr, IID_PPV_ARGS(ppResource));
+		Utils::Validate(hr, L"Error: failed to create buffer resource!");
+	}
+
+	/**
+	* Create a texture.
+	*/
+	void Create_Texture(D3D12Global& d3d, D3D12Resources& resources, Material& material)
+	{
+		// Load the texture
+		TextureInfo texture = Utils::LoadTexture(material.texturePath);
+		material.textureResolution = static_cast<float>(texture.width);
+
+		// Describe the texture
+		D3D12_RESOURCE_DESC textureDesc = {};
+		textureDesc.Width = texture.width;
+		textureDesc.Height = texture.height;
+		textureDesc.MipLevels = 1;
+		textureDesc.DepthOrArraySize = 1;
+		textureDesc.SampleDesc.Count = 1;
+		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+
+		// Create the texture resource
+		HRESULT hr = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &textureDesc, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resources.texture));
+		Utils::Validate(hr, L"Error: failed to create texture!");
 #if NAME_D3D_RESOURCES
-		if (n == 0) d3d.backBuffer[n]->SetName(L"Back Buffer 0");
-		else d3d.backBuffer[n]->SetName(L"Back Buffer 1");
+		resources.texture->SetName(L"Texture");
 #endif
 
-		rtvHandle.ptr += resources.rtvDescSize;
-	}
-}
+		// Describe the resource
+		D3D12_RESOURCE_DESC resourceDesc = {};
+		resourceDesc.Width = (texture.width * texture.height * texture.stride);
+		resourceDesc.Height = 1;
+		resourceDesc.DepthOrArraySize = 1;
+		resourceDesc.MipLevels = 1;
+		resourceDesc.SampleDesc.Count = 1;
+		resourceDesc.Format = DXGI_FORMAT_UNKNOWN;
+		resourceDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+		resourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 
-/**
-* Create and initialize the view constant buffer.
-*/
-void Create_View_CB(D3D12Global &d3d, D3D12Resources &resources) 
-{
-	Create_Constant_Buffer(d3d, &resources.viewCB, sizeof(ViewCB));
+		// Create the upload heap
+		hr = d3d.device->CreateCommittedResource(&UploadHeapProperties, D3D12_HEAP_FLAG_NONE, &resourceDesc, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resources.textureUploadResource));
+		Utils::Validate(hr, L"Error: failed to create texture upload heap!");
 #if NAME_D3D_RESOURCES
-	resources.viewCB->SetName(L"View Constant Buffer");
+		resources.textureUploadResource->SetName(L"Texture Upload Buffer");
 #endif
 
-	HRESULT hr = resources.viewCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.viewCBStart));
-	Utils::Validate(hr, L"Error: failed to map View constant buffer!");
+		// Upload the texture to the GPU
+		Upload_Texture(d3d, resources.texture, resources.textureUploadResource, texture);
+	}
 
-	memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
-	// mstack-plination copying the data from viewCBData to the start of the 
-}
+	/**
+	 * Copy a texture from the CPU to the GPU upload heap, then schedule a copy to the default heap.
+	 */
+	void Upload_Texture(D3D12Global& d3d, ID3D12Resource* destResource, ID3D12Resource* srcResource, const TextureInfo& texture)
+	{
+		// Copy the pixel data to the upload heap resource
+		UINT8* pData;
+		HRESULT hr = srcResource->Map(0, nullptr, reinterpret_cast<void**>(&pData));
+		memcpy(pData, texture.pixels.data(), texture.width * texture.height * texture.stride);
+		srcResource->Unmap(0, nullptr);
 
-/**
-* Create and initialize the material constant buffer.
-*/
-void Create_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const Material &material) 
-{
-	Create_Constant_Buffer(d3d, &resources.materialCB, sizeof(MaterialCB));
+		// Describe the upload heap resource location for the copy
+		D3D12_SUBRESOURCE_FOOTPRINT subresource = {};
+		subresource.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		subresource.Width = texture.width;
+		subresource.Height = texture.height;
+		subresource.RowPitch = (texture.width * texture.stride);
+		subresource.Depth = 1;
+
+		D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint = {};
+		footprint.Offset = texture.offset;
+		footprint.Footprint = subresource;
+
+		D3D12_TEXTURE_COPY_LOCATION source = {};
+		source.pResource = srcResource;
+		source.PlacedFootprint = footprint;
+		source.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+
+		// Describe the default heap resource location for the copy
+		D3D12_TEXTURE_COPY_LOCATION destination = {};
+		destination.pResource = destResource;
+		destination.SubresourceIndex = 0;
+		destination.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+
+		// Copy the buffer resource from the upload heap to the texture resource on the default heap
+		d3d.cmdList->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+
+		// Transition the texture to a shader resource
+		D3D12_RESOURCE_BARRIER barrier = {};
+		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+		barrier.Transition.pResource = destResource;
+		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		d3d.cmdList->ResourceBarrier(1, &barrier);
+	}
+
+	/*
+	* Create the vertex buffer.
+	*/
+	void Create_Vertex_Buffer(D3D12Global& d3d, D3D12Resources& resources, Model& model)
+	{
+		// Create the vertex buffer resource
+		D3D12BufferCreateInfo info(((UINT)model.vertices.size() * sizeof(Vertex)), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+		Create_Buffer(d3d, info, &resources.vertexBuffer);
 #if NAME_D3D_RESOURCES
-	resources.materialCB->SetName(L"Material Constant Buffer");
+		resources.vertexBuffer->SetName(L"Vertex Buffer");
 #endif
 
-	resources.materialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
+		// Copy the vertex data to the vertex buffer
+		UINT8* pVertexDataBegin;
+		D3D12_RANGE readRange = {};
+		HRESULT hr = resources.vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin));
+		Utils::Validate(hr, L"Error: failed to map vertex buffer!");
 
-	HRESULT hr = resources.materialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.materialCBStart));
-	Utils::Validate(hr, L"Error: failed to map Material constant buffer!");
+		memcpy(pVertexDataBegin, model.vertices.data(), info.size);
+		resources.vertexBuffer->Unmap(0, nullptr);
 
-	memcpy(resources.materialCBStart, &resources.materialCBData, sizeof(resources.materialCBData));
-}
+		// Initialize the vertex buffer view
+		resources.vertexBufferView.BufferLocation = resources.vertexBuffer->GetGPUVirtualAddress();
+		resources.vertexBufferView.StrideInBytes = sizeof(Vertex); //32 bytes
+		resources.vertexBufferView.SizeInBytes = static_cast<UINT>(info.size);
+	}
 
 
-/**
-* Create and initialize the material constant buffer.
-*/
-void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const std::vector<MyMaterialCB> &material_vec, int size) 
-{
-	Create_Constant_Buffer(d3d, &resources.myMaterialCB, sizeof(MyMaterialCB) * size );
+	/**
+	* Create the index buffer.
+	*/
+	void Create_Index_Buffer(D3D12Global& d3d, D3D12Resources& resources, Model& model)
+	{
+		// Create the index buffer resource
+		D3D12BufferCreateInfo info((UINT)model.indices.size() * sizeof(UINT), D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+		Create_Buffer(d3d, info, &resources.indexBuffer);
 #if NAME_D3D_RESOURCES
-	resources.materialCB->SetName(L"My Material Constant Buffer");
+		resources.indexBuffer->SetName(L"Index Buffer");
 #endif
 
-	//resources.myMaterialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
+		// Copy the index data to the index buffer
+		UINT8* pIndexDataBegin;
+		D3D12_RANGE readRange = {};
+		HRESULT hr = resources.indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin));
+		Utils::Validate(hr, L"Error: failed to map index buffer!");
 
-	resources.myMaterialCBDataSize = sizeof(MyMaterialCB) * size;
+		memcpy(pIndexDataBegin, model.indices.data(), info.size);
+		resources.indexBuffer->Unmap(0, nullptr);
 
-	HRESULT hr = resources.myMaterialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.myMaterialCBStart));
-	Utils::Validate(hr, L"Error: failed to map My Material constant buffer!");
+		// Initialize the index buffer view
+		resources.indexBufferView.BufferLocation = resources.indexBuffer->GetGPUVirtualAddress();
+		resources.indexBufferView.SizeInBytes = static_cast<UINT>(info.size);
+		resources.indexBufferView.Format = DXGI_FORMAT_R32_UINT;
+	}
 
-	//memcpy(resources.myMaterialCBStart, &resources.myMaterialCBData, sizeof(resources.materialCBData));
-	memcpy(resources.myMaterialCBStart, material_vec.data(), resources.myMaterialCBDataSize);
-}
 
-void Create_MiscBuffer_CB(D3D12Global& d3d, D3D12Resources& resources) {
-	Create_Constant_Buffer(d3d, &resources.miscBufferCB, sizeof(miscBuffer) );
+	/*
+	* Create a constant buffer.
+	*/
+	void Create_Constant_Buffer(D3D12Global& d3d, ID3D12Resource** buffer, UINT64 size)
+	{
+		D3D12BufferCreateInfo bufferInfo((size + 255) & ~255, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+		Create_Buffer(d3d, bufferInfo, buffer);
+	}
+
+	/**
+	* Create the back buffer's RTV view.
+	*/
+	void Create_BackBuffer_RTV(D3D12Global& d3d, D3D12Resources& resources)
+	{
+		HRESULT hr;
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle;
+
+		rtvHandle = resources.rtvHeap->GetCPUDescriptorHandleForHeapStart();
+
+		// Create a RTV for each back buffer
+		for (UINT n = 0; n < 2; n++)
+		{
+			hr = d3d.swapChain->GetBuffer(n, IID_PPV_ARGS(&d3d.backBuffer[n]));
+			Utils::Validate(hr, L"Error: failed to get swap chain buffer!");
+
+			d3d.device->CreateRenderTargetView(d3d.backBuffer[n], nullptr, rtvHandle);
+
 #if NAME_D3D_RESOURCES
-	resources.miscBufferCB->SetName(L"Misc Buffer Constant Buffer");
+			if (n == 0) d3d.backBuffer[n]->SetName(L"Back Buffer 0");
+			else d3d.backBuffer[n]->SetName(L"Back Buffer 1");
 #endif
 
-	resources.miscBufferData.Rg.x = d3d.frameIndex;
+			rtvHandle.ptr += resources.rtvDescSize;
+		}
+	}
 
-	HRESULT hr = resources.miscBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.miscBufferCBStart));
-	Utils::Validate(hr, L"Error: failed to map misc buffer constant buffer!");
-	
-	memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
-}
-
-/**
-* Create the RTV descriptor heap. Render Target View, non-shader visable
-*/
-void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources)
-{
-	// Describe the RTV descriptor heap
-	D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
-	rtvDesc.NumDescriptors = 2;
-	rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-
-	// Create the RTV heap
-	HRESULT hr = d3d.device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&resources.rtvHeap));
-	Utils::Validate(hr, L"Error: failed to create RTV descriptor heap!");
+	/**
+	* Create and initialize the view constant buffer.
+	*/
+	void Create_View_CB(D3D12Global& d3d, D3D12Resources& resources)
+	{
+		Create_Constant_Buffer(d3d, &resources.viewCB, sizeof(ViewCB));
 #if NAME_D3D_RESOURCES
-	resources.rtvHeap->SetName(L"RTV Descriptor Heap");
+		resources.viewCB->SetName(L"View Constant Buffer");
 #endif
 
-	resources.rtvDescSize = d3d.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-}
+		HRESULT hr = resources.viewCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.viewCBStart));
+		Utils::Validate(hr, L"Error: failed to map View constant buffer!");
 
-/**
-* Update the view constant buffer.
-*/
-
-XMFLOAT3 multiply(const XMFLOAT3& src, float mul) {
-	XMFLOAT3 ret_float{};
-	ret_float.x = src.x * mul;
-	ret_float.y = src.y * mul;
-	ret_float.z = src.z * mul;
-
-	return ret_float;
-}
-
-template <typename T>
-//inline void subtract(XMFLOAT3& src, XMFLOAT3 other) {
-inline void subtract(XMFLOAT3& src, T other) {
-
-	src.x -= other.x;
-	src.y -= other.y;
-	src.z -= other.z;
-}
-
-inline void add(XMFLOAT3& src, XMFLOAT3 other) {
-
-	src.x += other.x;
-	src.y += other.y;
-	src.z += other.z;
-}
-
-
-void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement, float mousex, float mousey, float mousez) 
-{
-	const float rotationSpeed = 0.00005f;
-	XMMATRIX view, invView;
-	XMFLOAT3 eye, focus, up;
-	float aspect, fov;
-
-	XMFLOAT3 temp;
-	XMFLOAT4 final_move;
-	XMVECTOR temp_vec_1;
-	XMVECTOR temp_vec_2;
-
-//	resources.eyeAngle.x += rotationSpeed;
-	up = XMFLOAT3(0.f, 1.f, 0.f);
-	auto cameraUp = XMLoadFloat3(&up);
-
-	if (mousey != 0 || mousex != 0) {
-		focus = XMFLOAT3(mousex, mousey, mousez);
+		memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
+		// mstack-plination copying the data from viewCBData to the start of the 
 	}
-	if (movement == 6) resources.eyePosition.y -= 0.05; // e
-	if (movement == 5) resources.eyePosition.y += 0.05; // q
-	if (movement == 4) {
-		temp = multiply(focus, 0.05f);
-		add(resources.eyePosition, temp);
+
+	/**
+	* Create and initialize the material constant buffer.
+	*/
+	void Create_Material_CB(D3D12Global& d3d, D3D12Resources& resources, const Material& material)
+	{
+		Create_Constant_Buffer(d3d, &resources.materialCB, sizeof(MaterialCB));
+#if NAME_D3D_RESOURCES
+		resources.materialCB->SetName(L"Material Constant Buffer");
+#endif
+
+		resources.materialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
+
+		HRESULT hr = resources.materialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.materialCBStart));
+		Utils::Validate(hr, L"Error: failed to map Material constant buffer!");
+
+		memcpy(resources.materialCBStart, &resources.materialCBData, sizeof(resources.materialCBData));
 	}
-	if (movement == 3) { // a
 
-		temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
-		temp_vec_2 = XMLoadFloat3(&focus);
 
-		XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+	/**
+	* Create and initialize the material constant buffer.
+	*/
+	void Create_My_Material_CB(D3D12Global& d3d, D3D12Resources& resources, const std::vector<MyMaterialCB>& material_vec, int size)
+	{
+		Create_Constant_Buffer(d3d, &resources.myMaterialCB, sizeof(MyMaterialCB) * size);
+#if NAME_D3D_RESOURCES
+		resources.materialCB->SetName(L"My Material Constant Buffer");
+#endif
 
-		XMStoreFloat4(&final_move, cross);
-		XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
-		temp = multiply(final_temp, 0.05f);
-		add(resources.eyePosition, temp);
+		//resources.myMaterialCBData.resolution = XMFLOAT4(material.textureResolution, 0.f, 0.f, 0.f);
+
+		resources.myMaterialCBDataSize = sizeof(MyMaterialCB) * size;
+
+		HRESULT hr = resources.myMaterialCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.myMaterialCBStart));
+		Utils::Validate(hr, L"Error: failed to map My Material constant buffer!");
+
+		//memcpy(resources.myMaterialCBStart, &resources.myMaterialCBData, sizeof(resources.materialCBData));
+		memcpy(resources.myMaterialCBStart, material_vec.data(), resources.myMaterialCBDataSize);
 	}
-	if (movement == 2) {// s 
 
-		temp = multiply(focus, 0.05f);
-		subtract(resources.eyePosition, temp);
+	void Create_MiscBuffer_CB(D3D12Global& d3d, D3D12Resources& resources) {
+		Create_Constant_Buffer(d3d, &resources.miscBufferCB, sizeof(miscBuffer));
+#if NAME_D3D_RESOURCES
+		resources.miscBufferCB->SetName(L"Misc Buffer Constant Buffer");
+#endif
+
+		resources.miscBufferData.frame_counter.x = d3d.frameIndex;
+		resources.miscBufferData.has_moved.x = d3d.has_moved;
+
+		HRESULT hr = resources.miscBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.miscBufferCBStart));
+		Utils::Validate(hr, L"Error: failed to map misc buffer constant buffer!");
+
+		memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
 	}
-	if (movement == 1) {// d
-		temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
-		temp_vec_2 = XMLoadFloat3(&focus);
 
-		XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+	/**
+	* Create the RTV descriptor heap. Render Target View, non-shader visable
+	*/
+	void Create_Descriptor_Heaps(D3D12Global& d3d, D3D12Resources& resources)
+	{
+		// Describe the RTV descriptor heap
+		D3D12_DESCRIPTOR_HEAP_DESC rtvDesc = {};
+		rtvDesc.NumDescriptors = 2;
+		rtvDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+		rtvDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 
-		XMStoreFloat4(&final_move, cross);
-		XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
-		temp = multiply(final_temp, 0.05f);
-		subtract(resources.eyePosition, temp);
+		// Create the RTV heap
+		HRESULT hr = d3d.device->CreateDescriptorHeap(&rtvDesc, IID_PPV_ARGS(&resources.rtvHeap));
+		Utils::Validate(hr, L"Error: failed to create RTV descriptor heap!");
+#if NAME_D3D_RESOURCES
+		resources.rtvHeap->SetName(L"RTV Descriptor Heap");
+#endif
+
+		resources.rtvDescSize = d3d.device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
-	if (movement == 0); // d
 
-	float x = 2.f + resources.eyePosition.x;
-	float y = 0.f + resources.eyePosition.y;
-	float z = 2.25f + 2.f + resources.eyePosition.z;
+	/**
+	* Update the view constant buffer.
+	*/
 
-	resources.eyeAngle.x = 1.f;
-	resources.eyeAngle.y = 0.f;
+	XMFLOAT3 multiply(const XMFLOAT3& src, float mul) {
+		XMFLOAT3 ret_float{};
+		ret_float.x = src.x * mul;
+		ret_float.y = src.y * mul;
+		ret_float.z = src.z * mul;
 
-	eye = XMFLOAT3(x, y, z);
+		return ret_float;
+	}
 
-	aspect = (float)d3d.width / (float)d3d.height;
-	fov = 65.f * (XM_PI / 180.f);							// convert to radians
+	template <typename T>
+	//inline void subtract(XMFLOAT3& src, XMFLOAT3 other) {
+	inline void subtract(XMFLOAT3& src, T other) {
 
-	auto cameraPos = XMLoadFloat3(&eye);
-	auto cameraFront = XMLoadFloat3(&focus);
+		src.x -= other.x;
+		src.y -= other.y;
+		src.z -= other.z;
+	}
 
-	view = XMMatrixLookAtLH(cameraPos, cameraPos + cameraFront, cameraUp);
+	inline void add(XMFLOAT3& src, XMFLOAT3 other) {
+
+		src.x += other.x;
+		src.y += other.y;
+		src.z += other.z;
+	}
+
+
+	void Update_View_CB(D3D12Global& d3d, D3D12Resources& resources, float movement, float mousex, float mousey, float mousez)
+	{
+		const float rotationSpeed = 0.00005f;
+		XMMATRIX view, invView;
+		XMFLOAT3 eye, focus, up;
+		float aspect, fov;
+
+		XMFLOAT3 temp;
+		XMFLOAT4 final_move;
+		XMVECTOR temp_vec_1;
+		XMVECTOR temp_vec_2;
+
+		//	resources.eyeAngle.x += rotationSpeed;
+		up = XMFLOAT3(0.f, 1.f, 0.f);
+		auto cameraUp = XMLoadFloat3(&up);
+
+		if (mousey != 0 || mousex != 0) {
+			focus = XMFLOAT3(mousex, mousey, mousez);
+		}
+		if (movement == 6) resources.eyePosition.y -= 0.05; // e
+		if (movement == 5) resources.eyePosition.y += 0.05; // q
+		if (movement == 4) {
+			temp = multiply(focus, 0.05f);
+			add(resources.eyePosition, temp);
+		}
+		if (movement == 3) { // a
+
+			temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
+			temp_vec_2 = XMLoadFloat3(&focus);
+
+			XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+
+			XMStoreFloat4(&final_move, cross);
+			XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
+			temp = multiply(final_temp, 0.05f);
+			add(resources.eyePosition, temp);
+		}
+		if (movement == 2) {// s 
+
+			temp = multiply(focus, 0.05f);
+			subtract(resources.eyePosition, temp);
+		}
+		if (movement == 1) {// d
+			temp_vec_1 = XMLoadFloat3(&resources.eyePosition);
+			temp_vec_2 = XMLoadFloat3(&focus);
+
+			XMVECTOR cross = XMVector3Normalize(XMVector3Cross(temp_vec_2, cameraUp));
+
+			XMStoreFloat4(&final_move, cross);
+			XMFLOAT3 final_temp{ final_move.x, final_move.y, final_move.z };
+			temp = multiply(final_temp, 0.05f);
+			subtract(resources.eyePosition, temp);
+		}
+		if (movement == 0); // d
+
+		float x = 2.f + resources.eyePosition.x;
+		float y = 0.f + resources.eyePosition.y;
+		float z = 2.25f + 2.f + resources.eyePosition.z;
+
+		resources.eyeAngle.x = 1.f;
+		resources.eyeAngle.y = 0.f;
+
+		eye = XMFLOAT3(x, y, z);
+
+		aspect = (float)d3d.width / (float)d3d.height;
+		fov = 65.f * (XM_PI / 180.f);							// convert to radians
+
+		auto cameraPos = XMLoadFloat3(&eye);
+		auto cameraFront = XMLoadFloat3(&focus);
+
+		view = XMMatrixLookAtLH(cameraPos, cameraPos + cameraFront, cameraUp);
 		// make this a lookat
-	invView = XMMatrixInverse(NULL, view);
+		invView = XMMatrixInverse(NULL, view);
 
-	resources.viewCBData.view = XMMatrixTranspose(invView);
-	resources.viewCBData.viewOriginAndTanHalfFovY = XMFLOAT4(eye.x, eye.y, eye.z, tanf(fov * 0.5f));
-	resources.viewCBData.resolution = XMFLOAT2((float)d3d.width, (float)d3d.height);
-	memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
-	// mstack-plination store back the new data of viewCBData into the start of the viewCBStart, which is 
-	// techincally GPU memory
-}
+		// for accumulation
 
-/**
- * Release the resources.
- */
+		if (XMVector3Equal(d3d.temp_cameraPos, cameraPos) && XMVector3Equal(d3d.temp_cameraFront, cameraFront)) {
+			//not moved
+			d3d.has_moved = 0.f;
+			d3d.acc_counter++;
+		}
+		else {
+			d3d.has_moved = 1.f;
+			d3d.acc_counter = 0.f;
+		}
+		//d3d.last_matrix = invView;
+		d3d.temp_cameraFront = cameraFront;
+		d3d.temp_cameraPos = cameraPos;
+
+		resources.viewCBData.view = XMMatrixTranspose(invView);
+		resources.viewCBData.viewOriginAndTanHalfFovY = XMFLOAT4(eye.x, eye.y, eye.z, tanf(fov * 0.5f));
+		resources.viewCBData.resolution = XMFLOAT2((float)d3d.width, (float)d3d.height);
+		memcpy(resources.viewCBStart, &resources.viewCBData, sizeof(resources.viewCBData));
+		// mstack-plination store back the new data of viewCBData into the start of the viewCBStart, which is 
+		// techincally GPU memory
+	}
+
+
+
+	void Update_Misc_CB(D3D12Global& d3d, D3D12Resources& resources) {
+		//resources.miscBufferData.frame_counter.x = d3d.frameIndex;
+		resources.miscBufferData.frame_counter.x++;
+		resources.miscBufferData.has_moved.x = d3d.has_moved;
+		resources.miscBufferData.has_moved.y = d3d.acc_counter;
+		memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
+	}
+
+	/**
+	 * Release the resources.
+	 */
+
 void Destroy(D3D12Resources &resources)
 {
 	if (resources.viewCB) resources.viewCB->Unmap(0, nullptr);
@@ -1218,7 +1245,8 @@ namespace DXR
 		// ^ this translates as three CBVs, then you need to make sure the following are offset correctly
 
 		ranges[1].BaseShaderRegister = 0;
-		ranges[1].NumDescriptors = 1;
+		//ranges[1].NumDescriptors = 1;
+		ranges[1].NumDescriptors = 2; // new
 		ranges[1].RegisterSpace = 0;
 		ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		//ranges[1].OffsetInDescriptorsFromTableStart = 2;
@@ -1231,7 +1259,8 @@ namespace DXR
 		ranges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 3;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 4;
-		ranges[2].OffsetInDescriptorsFromTableStart = 5;
+		//ranges[2].OffsetInDescriptorsFromTableStart = 5;
+		ranges[2].OffsetInDescriptorsFromTableStart = 6; // new because extra UAV Acc Buffer
 
 		D3D12_ROOT_PARAMETER param0 = {};
 		param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -1674,6 +1703,7 @@ namespace DXR
 		// NEW ADD 1 CBV for the MyMaterialCB, will be in b(2)?
 		// NEW ADD 1 CBV for the miscBufferCB, will be in b(3)
 		// 1 UAV for the RT output
+		// NEW ADD 1 UAV for the RT Acculmation buffer, u(1) 
 		// 1 SRV for the Scene BVH
 		// 1 SRV for the index buffer
 		// 1 SRV for the vertex buffer
@@ -1681,7 +1711,8 @@ namespace DXR
 		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 		//desc.NumDescriptors = 7;
 		//desc.NumDescriptors = 8;
-		desc.NumDescriptors = 9; // new for miscBuffer
+		//desc.NumDescriptors = 9; // new for miscBuffer
+		desc.NumDescriptors = 10; // new for DXRAccBuffer
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -1733,6 +1764,13 @@ namespace DXR
 
 		handle.ptr += handleIncrement;
 		d3d.device->CreateUnorderedAccessView(resources.DXROutput, nullptr, &uavDesc, handle);
+
+		// Create the DXR acc buffer buffer UAV NEW
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavAccDesc = {};
+		uavAccDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+		handle.ptr += handleIncrement;
+		d3d.device->CreateUnorderedAccessView(resources.DXRAccBuffer, nullptr, &uavAccDesc, handle);
 
 		// Create the DXR Top Level Acceleration Structure SRV
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
@@ -1792,7 +1830,6 @@ namespace DXR
 
 	}
 
-	// ignnore this one
 
 	/**
 	* Create the DXR output buffer.
@@ -1821,6 +1858,33 @@ namespace DXR
 		Utils::Validate(hr, L"Error: failed to create DXR output buffer!");
 #if NAME_D3D_RESOURCES
 		resources.DXROutput->SetName(L"DXR Output Buffer");
+#endif
+	}
+
+
+	/**
+	* Create the DXR Acculumlation buffer.
+	*/
+	void Create_DXR_Acc_Buffer(D3D12Global& d3d, D3D12Resources& resources)
+	{
+		// Describe the DXR Acc Buffer resource (texture)
+		D3D12_RESOURCE_DESC desc = {};
+		desc.DepthOrArraySize = 1;
+		desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		desc.Width = d3d.width;
+		desc.Height = d3d.height;
+		desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		desc.MipLevels = 1;
+		desc.SampleDesc.Count = 1;
+		desc.SampleDesc.Quality = 0;
+
+		// Create the buffer resource
+		HRESULT hr = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resources.DXRAccBuffer));
+		Utils::Validate(hr, L"Error: failed to create DXR Acc Buffer buffer!");
+#if NAME_D3D_RESOURCES
+		resources.DXROutput->SetName(L"DXR Acc Buffer Buffer");
 #endif
 	}
 

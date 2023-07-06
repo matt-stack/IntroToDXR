@@ -175,8 +175,8 @@ struct MyMaterialCB
 
 struct miscBuffer
 {
-	DirectX::XMFLOAT4 Rg = { 0., 0., 0., 0.};
-	DirectX::XMFLOAT2 rG = { 0, 1};
+	DirectX::XMFLOAT4 frame_counter = { 0., 0., 0., 0.};
+	DirectX::XMFLOAT2 has_moved = { 0, 0};
 	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
 	DirectX::XMFLOAT2 rGe = { 0, 1 };
 // random unpacked stuct to test non-array cbuffers
@@ -264,6 +264,7 @@ struct D3D12ShaderInfo
 struct D3D12Resources 
 {
 	ID3D12Resource*									DXROutput;
+	ID3D12Resource*									DXRAccBuffer;
 
 	ID3D12Resource*									vertexBuffer = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW						vertexBufferView;
@@ -317,6 +318,14 @@ struct D3D12Global
 	UINT64											fenceValues[2] = { 0, 0 };
 	HANDLE											fenceEvent;
 	UINT											frameIndex = 0;
+
+	// for acculumataltion
+	//DirectX::XMMATRIX								last_matrix;
+	DirectX::XMVECTOR								temp_cameraPos;
+	DirectX::XMVECTOR								temp_cameraFront;
+	float											has_moved = 0; // 1 for moved, 0 for not moved
+	float											acc_counter = 0;
+
 
 	int												width = 640;
 	int												height = 360;

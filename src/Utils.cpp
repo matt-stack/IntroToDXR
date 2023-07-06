@@ -250,14 +250,14 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 				attrib.vertices[3 * index.vertex_index + 1],
 				attrib.vertices[3 * index.vertex_index + 0]
 			};
-			if (index.normal_index > 0) {
+		//	if (index.normal_index > 0) {
 				vertex.normal =
 				{
 					attrib.normals[3 * index.normal_index + 2],
 					attrib.normals[3 * index.normal_index + 1],
 					attrib.normals[3 * index.normal_index + 0]
 				};
-			}
+		//	}
 			
 			vertex.uv = 
 			{

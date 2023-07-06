@@ -59,48 +59,24 @@ void RayGen()
 		ray,
 		payload);
 
-/*
-	// Setup Shadow Ray
-	RayDesc shadowRay;
-	shadowRay.Origin = float3(1.f, 1.f, 1.f);
-	float4 mainLight = float4(5.f, 5.f, 5.f, 1.f);
-	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
-	//shadowRay.Direction = float3(1.f, 1.f, 1.f);
+	// post shading, shadows, AO..
 
-	shadowRay.TMin = 0.1f;
-	shadowRay.TMax = 10.f;	
+	// accumulation
+//	if (has_moved.x == 0.f) {
+		//not moved
+		float3 last_color = RTAccBuffer[LaunchIndex.xy];
+		float3 curr_color = payload.ShadedColorAndHitT.rgb;
+		float3 output_color = (has_moved.y * last_color + curr_color) / (has_moved.y + 1);
+//	}
+//	else {
+	// zero out Acc Buffer
+//	}
+	// else moved	
+
 	
-	// Trace the ray
-	ShadowInfo shadowPayload;
-	shadowPayload.isVis = float4(0.f, 0.f, 0.f, 0.f);
-
-	TraceRay(
-		SceneBVH,
-		RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH |
-		RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-		0xFF,
-		1,
-		2,
-		1,
-		shadowRay,
-		shadowPayload);
-
-
-	float3 finalColor;
-
-	//RGB + shadow contribution
-
-	if (shadowPayload.isVis.x == 1.f) {
-		finalColor = float3( payload.ShadedColorAndHitT.x * 1., payload.ShadedColorAndHitT.y * 1., payload.ShadedColorAndHitT.z * 1. );
-		//finalColor = float3( 0.f, 1.f, 0.f);
-	}
-	else { 
-		finalColor = float3( payload.ShadedColorAndHitT.x * 0.5, payload.ShadedColorAndHitT.y * 0.5, payload.ShadedColorAndHitT.z * 0.5 );
-		//finalColor =  float3( RGB.x * 0.5, RGB.y * 0.5, RGB.z * 0.5 );
-		//finalColor = float3( 0.f, 0.f, 1.f);
-	}
-		*/
-
-	RTOutput[LaunchIndex.xy] = float4(payload.ShadedColorAndHitT.rgb, 1.f);
+//	RTOutput[LaunchIndex.xy] = float4(payload.ShadedColorAndHitT.rgb, 1.f);
+	RTOutput[LaunchIndex.xy] = float4(output_color, 1.f);
 //	RTOutput[LaunchIndex.xy] = float4(finalColor.rgb, 1.f);
+	// save the current frame to back buffer (Acc Buffer)
+	RTAccBuffer[LaunchIndex.xy] = RTOutput[LaunchIndex.xy];
 }
