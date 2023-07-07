@@ -215,6 +215,7 @@ https://github.com/SaschaWillems/Vulkan/tree/master/data/shaders/glsl/raytracing
 */
 
 
+
 // next four functions are academically stolen from Chris Wymans Intro to DXR presentation :)
 // Generates a seed for a random number generator from 2 inputs plus a backoff
 uint initRand(uint val0, uint val1, uint backoff = 16)
@@ -236,6 +237,15 @@ float nextRand(inout uint s)
 {
 	s = (1664525u * s + 1013904223u);
 	return float(s & 0x00FFFFFF) / float(0x01000000);
+}
+
+
+float2 getJitter() {
+	uint2 launchIndex = DispatchRaysIndex();
+	uint2 launchDim = DispatchRaysDimensions();
+	uint rand_seed = initRand(launchIndex.x + launchIndex.y * launchDim.x, frame_counter.x, 16);
+	float2 rand_val = float2(nextRand(rand_seed), nextRand(rand_seed));
+	return rand_val;
 }
 
 // Utility function to get a vector perpendicular to an input vector 
