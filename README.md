@@ -1,9 +1,14 @@
 # PBR study
+* cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/cmd/pbrt.cpp#L282)
+
+Main, and where the Initialization happens. BasicScene, BasicSceneBuilder are created here, and called in ParseFile. After, the scene is rendered with RenderWaveFront or RenderCPU
+
 * file, line num
+
 descritpion
+
 * file, line num
-descritpion
-* file, line num
+
 descritpion
 
 
