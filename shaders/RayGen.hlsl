@@ -36,7 +36,7 @@ void RayGen()
 	uint2 LaunchDimensions = DispatchRaysDimensions().xy;
 
 	//float2 d = (((LaunchIndex.xy + 0.5f) / resolution.xy) * 2.f - 1.f);
-	float2 rand_jitter = getJitter();
+	float2 rand_jitter = getJitter(); 
 	float2 d = ((((LaunchIndex.xy + 0.5f) + rand_jitter) / resolution.xy) * 2.f - 1.f);
 	float aspectRatio = (resolution.x / resolution.y);
 

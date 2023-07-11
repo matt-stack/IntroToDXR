@@ -244,7 +244,8 @@ float2 getJitter() {
 	uint2 launchIndex = DispatchRaysIndex();
 	uint2 launchDim = DispatchRaysDimensions();
 	uint rand_seed = initRand(launchIndex.x + launchIndex.y * launchDim.x, frame_counter.x, 16);
-	float2 rand_val = float2(nextRand(rand_seed), nextRand(rand_seed));
+	float2 rand_val = float2(nextRand(rand_seed), nextRand(rand_seed)); //rand_val = [0..1]
+	rand_val -= 0.5f; // we want rand_val = [-0.5..0.5]
 	return rand_val;
 }
 
