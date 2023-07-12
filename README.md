@@ -1,11 +1,11 @@
 # PBR study
-* cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/cmd/pbrt.cpp#L282)
+cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/cmd/pbrt.cpp#L282)
 
-Main, and where the Initialization happens. BasicScene, BasicSceneBuilder are created here, and called in ParseFile. After, the scene is rendered with RenderWaveFront or RenderCPU
+* Main, and where the Initialization happens. BasicScene, BasicSceneBuilder are created here, and called in ParseFile. After, the scene is rendered with RenderWaveFront or RenderCPU
 
-* file, line num
+parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1842)
 
-descritpion
+* Following ParserFile -> Parser -> switch to Attribute S for Shape -> basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc)
 
 * file, line num
 
