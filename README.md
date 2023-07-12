@@ -3,13 +3,19 @@ cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d9087525131
 
 * Main, and where the Initialization happens. BasicScene, BasicSceneBuilder are created here, and called in ParseFile. After, the scene is rendered with RenderWaveFront or RenderCPU
 
-parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1842)
 
-* Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). Unsure if the line in main that says "Parse provided scene description files" is for the .ply files or for the other ones..
+parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1842) to write PLY files
+scene.cpp, [line 261]((https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) if PLY files exist
 
-* file, line num
+* Thw two Shape functions: Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). The line in main that says "Parse provided scene description files" is for the .ply files, because if you follow through the FormattingParserTarget::Shape [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1843) then you see it calls the WritePLY function, and generally talks about creating PLY files. 
 
-descritpion
+scene.cpp, [line 305](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305) 
+
+* Adding new shapes to the ongoing shape vector for the BasicSceneBuilder. These shapes are referenced later in the aggregate file, which creates and owns the BLAS GPU memory of the triangles.
+
+gpu/aggregate.cpp, [line 339](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/gpu/aggregate.cpp#L339)
+
+* Building BVH and Creating GPU memory for both bounding b's and meshes. 
 
 
 
