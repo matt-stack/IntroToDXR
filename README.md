@@ -5,7 +5,7 @@ cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d9087525131
 
 parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1842)
 
-* Following ParserFile -> Parser -> switch to Attribute S for Shape -> basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc)
+* Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). Unsure if the line in main that says "Parse provided scene description files" is for the .ply files or for the other ones..
 
 * file, line num
 
