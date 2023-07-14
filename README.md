@@ -5,17 +5,32 @@ cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d9087525131
 
 
 parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1842) to write PLY files
+
 scene.cpp, [line 261]((https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) if PLY files exist
 
-* Thw two Shape functions: Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). The line in main that says "Parse provided scene description files" is for the .ply files, because if you follow through the FormattingParserTarget::Shape [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1843) then you see it calls the WritePLY function, and generally talks about creating PLY files. 
+* The two Shape functions: Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). The line in main that says "Parse provided scene description files" is for the .ply files, because if you follow through the FormattingParserTarget::Shape [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1843) then you see it calls the WritePLY function, and generally talks about creating PLY files. 
 
 scene.cpp, [line 305](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305) 
 
 * Adding new shapes to the ongoing shape vector for the BasicSceneBuilder. These shapes are referenced later in the aggregate file, which creates and owns the BLAS GPU memory of the triangles.
 
+wavefront/wavefront.cpp, [line 14](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/wavefront/wavefront.cpp#L14)
+
+* This is the RenderWaveFront() function that is called by main, and it owns the creation of the WavefrontPathIntegrator (and the constructor [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/wavefront/integrator.cpp#L80) calls to aggregiate, which iits own constructor has many important functions like creating the Cuda memory) and actually calls integrator->render()
+
+wavefront/integrator.cpp, [line 80](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/wavefront/integrator.cpp#L80)
+
+* WavefrontPathIntegrator constructor, which creates textures, lights, materials, etc, and critcially calls the OptiXAggregate constructor [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/wavefront/integrator.cpp#L162) on the GPU path
+
+gpu/aggregate.cpp, [line 1159](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/gpu/aggregate.cpp#L1159)
+
+* OptiXAggregate constructor, which calls buildBVHForTriangles on [line 1374](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/gpu/aggregate.cpp#L1374), which goes to same file
+
 gpu/aggregate.cpp, [line 339](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/gpu/aggregate.cpp#L339)
 
 * Building BVH and Creating GPU memory for both bounding b's and meshes. 
+
+
 
 
 
