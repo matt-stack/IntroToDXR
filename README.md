@@ -28,10 +28,22 @@ gpu/aggregate.cpp, [line 1159](https://github.com/mmp/pbrt-v4/blob/f94d39f8d9087
 
 gpu/aggregate.cpp, [line 339](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/gpu/aggregate.cpp#L339)
 
-* Building BVH and Creating GPU memory for both bounding b's and meshes. 
+* Building BVH and Creating GPU memory for both bounding b's and meshes. IMPORTANT: reponsible for cycling through mesh vector and creating the GPU memory
+
+gpu/aggregate.cpp [line ](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L460)
+
+* The device memory is created with cudaMalloc and the pointer `point3f *pGPU` is pushed into the vector `std::vector<CUdeviceptr> pDeviceDevicePtrs(nMeshes)` via a `CUdeviceptr` call of pGPU
 
 
+Key data structures are 
+BasicSceneBuilder - this is used as the original state when parsing. Holds `GraphicsState graphicsState` and `std::vector<ShapeSceneEntity> shapes`, plus the camera and integrator as `SceneEntity`. BasicSceneBuilder has a member function BasicSceneBuilder::Shape that is called when parsing [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/parser.cpp#L906)
 
+ShapeSceneEntity - this is like a descriptor (in dx12) to a shape, it holds all the infomation that was passed from Parse via the `ParsedParameterVector params`. The member `entity` of type `ShapeSceneEnity` is created in Shape() and passed to the `shapes` vector owned in BasicSceneBuilder
+
+TriangleMesh - Contains info like [points](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/util/mesh.h#L41), normals, uv's. Very important. In aggregate's BuildBVHForTriangle(), a TriangleMesh `mesh` is create via [Triangle::CreateMesh](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/shapes.cpp#L372) and called [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L372) using the ShapeSceneEntity vector `shapes`. the `mesh` is pushed onto a `std::Vector<TriangleMesh *> meshes` [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L430). Then later that `meshes` vector is cycled through and the GPU memory is created for vertex and indices [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L457)
+
+CUdeviceptr - after pDeviceDevicePtrs
+ 
 
 
 
