@@ -30,6 +30,10 @@
 #include "Structures.h"
 #include <directxmath.h>
 
+
+
+#include "PBR_include/parser.h"
+
 namespace Utils
 {
 	HRESULT ParseCommandLine(LPWSTR lpCmdLine, ConfigInfo &config);
@@ -39,9 +43,13 @@ namespace Utils
 	//void LoadModel(std::string filepath, Model &model, Material &material);
 	void LoadModel(std::string filepath, Model &model, Material &material, std::vector<MyMaterialCB>& materialVec);
 
-	void CustomModel(ModelNorms &model);
-
 	void Validate(HRESULT hr, LPWSTR message);
 
 	TextureInfo LoadTexture(std::string filepath);
+}
+
+namespace PBR
+{
+	std::unique_ptr<PBR::Tokenizer> createFromFile(const std::string& filename);
+
 }

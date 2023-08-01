@@ -42,6 +42,18 @@
 
 #include <comdef.h>
 
+#include <fstream>
+#include <fcntl.h>
+#include <xlocbuf>
+//#include <PBR_include/check.h>
+#include <locale>
+#include <codecvt>
+#include <mutex>
+
+#include <string>
+
+#include "PBR_include/parser.h"
+#include "PBR_include/scene.h"
 
 namespace std
 {
@@ -294,75 +306,8 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 // Custom Modeling
 //--------------------------------------------------------------------------------------
 // Using VertexNorms
- 
-void CustomModel(ModelNorms& model) {
-	unordered_map<Vertex, uint32_t> uniqueVertices = {};
 
-	// Cube indices.
-	uint32_t indices [] =
-	{
-		3,1,0,
-		2,1,3,
-
-		6,4,5,
-		7,4,6,
-
-		11,9,8,
-		10,9,11,
-
-		14,12,13,
-		15,12,14,
-
-		19,17,16,
-		18,17,19,
-
-		22,20,21,
-		23,20,22
-	};
-
-	// Cube vertices positions and corresponding triangle normals.
-	VertexNorms vertices[] =
-	{
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, -1.0f, 0.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(-1.0f, 0.0f, 0.0f) },
-
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, -1.0f) },
-
-		{ XMFLOAT3(-1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, -1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(-1.0f, 1.0f, 1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-	};
-
-	for (const auto& i : indices) {	
-		model.indices.push_back(i);
-	}
-
-	for (const auto& v : vertices) {
-		model.vertices.push_back(v);
-	}
-
-}
+// old stuff, deleted
 
 //--------------------------------------------------------------------------------------
 // Textures
@@ -410,5 +355,118 @@ TextureInfo LoadTexture(string filepath)
 	stbi_image_free(pixels);
 	return result;
 }
+
+}
+
+// *****************************************************************
+// PBR Implementation
+// 
+// parse files
+// *****************************************************************
+
+namespace PBR 
+{
+
+	// this is the "main" for absorbing pbrt files and creating the geometry
+	void HandlePBRGeom() {
+
+		std::vector<std::string> filenames = {"geometry.pbrt"};
+
+		BasicScene scene;
+		BasicSceneBuilder builder(&scene);
+//		ParseFiles(&builder, filenames);
+
+		// Render the scene
+//		if (Options->useGPU || Options->wavefront)
+//			RenderWavefront(scene);
+
+	}
+/*	
+    struct FileLoc {
+        FileLoc() = default;
+        FileLoc(std::string_view filename) : filename(filename) {}
+        std::string ToString() const;
+
+        std::string_view filename;
+        int line = 1, column = 0;
+    };
+	*/
+	/*
+	static void processError(const char* errorType, const PBR::FileLoc* loc, const char* message) {
+		// Build up an entire formatted error string and print it all at once;
+		// this way, if multiple threads are printing messages at once, they
+		// don't get jumbled up...
+		std::string errorString = errorType;
+
+		if (loc)
+//			errorString += ": " + loc->ToString(); // this FileLoc ToString would need an implmenation, right now its just declaration
+
+		errorString += ": ";
+		errorString += message;
+
+		// Print the error message (but not more than one time).
+		static std::string lastError;
+		static std::mutex mutex;
+		std::lock_guard<std::mutex> lock(mutex);
+		if (errorString != lastError) {
+			fprintf(stderr, "%s\n", errorString.c_str());
+			lastError = errorString;
+		}
+	}
+
+	void ErrorExit(const PBR::FileLoc* loc, const char* message) {
+		processError("Error", loc, message);
+		std::quick_exit(1);
+	}
+
+
+
+	std::u16string UTF16FromUTF8(std::string str) {
+		std::wstring_convert<
+			std::codecvt_utf8_utf16<char16_t, 0x10ffff, std::codecvt_mode::little_endian>,
+			char16_t>
+			cnv;
+		std::u16string utf16 = cnv.from_bytes(str);
+	//	CHECK_GE(cnv.converted(), str.size());
+		return utf16;
+	}
+
+	std::wstring WStringFromU16String(std::u16string str) {
+		std::wstring ws;
+		ws.reserve(str.size());
+		for (char16_t c : str)
+			ws.push_back(c);
+		return ws;
+	}
+
+	std::wstring WStringFromUTF8(std::string str) {
+		return WStringFromU16String(UTF16FromUTF8(str));
+	}
+
+	std::string ReadFileContents(std::string filename) {
+		std::ifstream ifs(WStringFromUTF8(filename).c_str(), std::ios::binary);
+//		if (!ifs)
+//			ErrorExit("%s: %s", filename, pbrt::ErrorString());
+		return std::string((std::istreambuf_iterator<char>(ifs)),
+			(std::istreambuf_iterator<char>()));
+
+	}
+	
+
+	std::unique_ptr<pbrt::Tokenizer> createFromFile(const std::string& filename,
+		std::function<void(const char*, const PBR::FileLoc*)> errorCallback) {
+
+		//auto tokError = [](const char* msg, const pbrt::FileLoc* loc) {
+		//	ErrorExit(loc, "%s", msg);
+		//};
+
+		std::string str = ReadFileContents(filename);
+		return std::make_unique<pbrt::Tokenizer>(std::move(str), filename,
+			std::move(errorCallback));
+	
+	}
+	
+*/
+
 
 }

@@ -89,31 +89,6 @@ struct Vertex
 	}
 };
 
-struct VertexNorms
-{
-	DirectX::XMFLOAT3 position;
-	DirectX::XMFLOAT3 normal;
-//	DirectX::XMFLOAT2 uv;
-
-	bool operator==(const VertexNorms &v) const 
-	{
-		if (CompareVector3WithEpsilon(position, v.position)) 
-		{
-			//if (CompareVector2WithEpsilon(uv, v.uv)) return true;
-			if (CompareVector3WithEpsilon(normal, v.normal)) return true;
-			return true;
-		}
-		return false;
-	}
-
-	VertexNorms& operator=(const VertexNorms& v) 
-	{
-		position = v.position;
-		normal = v.normal;
-		//uv = v.uv;
-		return *this;
-	}
-};
 
 
 struct Material_Info 
@@ -139,11 +114,6 @@ struct Model
 	std::vector<uint32_t> indices;
 };
 
-struct ModelNorms
-{
-	std::vector<VertexNorms> vertices;
-	std::vector<uint32_t> indices;
-};
 
 struct TextureInfo
 {
@@ -441,3 +411,21 @@ struct DXRGlobal
 	ID3D12StateObject*								rtpso = nullptr;
 	ID3D12StateObjectProperties*					rtpsoInfo = nullptr;
 };
+/*
+struct Tokenizer
+{
+	const char* pos, * end;
+
+};
+
+struct PBRFiles
+{
+	std::string filename;
+	// Tokenizer
+	// fileStack
+	// 
+
+
+};
+*/
+
