@@ -797,10 +797,12 @@ namespace PBR {
 
             switch (tok->token[0]) {
             case 'A':
-                if (tok->token == "AttributeBegin") // need 
+                if (tok->token == "AttributeBegin") { // need 
                     target->AttributeBegin(tok->loc);
-                else if (tok->token == "AttributeEnd") // need
+                }
+                else if (tok->token == "AttributeEnd") { // need
                     target->AttributeEnd(tok->loc);
+                }
                 else if (tok->token == "Attribute") { // no
                     //basicParamListEntrypoint(&ParserTarget::Attribute, tok->loc);
                 }
@@ -819,7 +821,7 @@ namespace PBR {
                         syntaxError(*tok);
                 }
                 else if (tok->token == "AreaLightSource") {
-                    //basicParamListEntrypoint(&ParserTarget::AreaLightSource, tok->loc);
+// need this!                    basicParamListEntrypoint(&ParserTarget::AreaLightSource, tok->loc);
                 }
                 else if (tok->token == "Accelerator") { // no
                     //basicParamListEntrypoint(&ParserTarget::Accelerator, tok->loc);
@@ -1108,7 +1110,7 @@ namespace PBR {
 //                    target->TransformTimes(v[0], v[1], tok->loc);
                 }
                 else if (tok->token == "Texture") {
-                    std::string_view n = dequoteString(*nextToken(TokenRequired));
+                     std::string_view n = dequoteString(*nextToken(TokenRequired));
                     std::string name = toString(n);
                     n = dequoteString(*nextToken(TokenRequired));
                     std::string type = toString(n);
@@ -1133,7 +1135,7 @@ namespace PBR {
 
             case 'W':
                 if (tok->token == "WorldBegin") {
-                    //                    target->WorldBegin(tok->loc);
+                    target->WorldBegin(tok->loc);
                 }
                 else if (tok->token == "WorldEnd" && formatting)
                     ;  // just swallow it

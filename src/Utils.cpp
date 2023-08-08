@@ -374,7 +374,7 @@ namespace PBR
 
 		BasicScene scene;
 		BasicSceneBuilder builder(&scene);
-//		ParseFiles(&builder, filenames);
+		ParseFiles(&builder, filenames);
 
 		// Render the scene
 //		if (Options->useGPU || Options->wavefront)

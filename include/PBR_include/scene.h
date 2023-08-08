@@ -24,6 +24,7 @@
 
 #include <PBR_include/parser.h>
 #include <PBR_include/paramdict.h>
+#include <PBR_include/transform.h>
 
 #include <functional>
 #include <map>
@@ -66,7 +67,7 @@ namespace PBR {
     struct Material {};
 
     // placeholder
-    struct Transform {};
+    //struct Transform {};
 
     // SceneEntity Definition
     struct SceneEntity {
@@ -264,18 +265,17 @@ namespace PBR {
 
     // MaxTransforms Definition
     constexpr int MaxTransforms = 2;
-/*
+
     // TransformSet Definition
     struct TransformSet {
         // TransformSet Public Methods
         Transform& operator[](int i) {
-            CHECK_GE(i, 0);
-            CHECK_LT(i, MaxTransforms);
+            //if (i < 0 && i > MaxTransforms) { return t[i]; };
             return t[i];
         }
         const Transform& operator[](int i) const {
-            CHECK_GE(i, 0);
-            CHECK_LT(i, MaxTransforms);
+            //CHECK_GE(i, 0);
+            //CHECK_LT(i, MaxTransforms);
             return t[i];
         }
         friend TransformSet Inverse(const TransformSet& ts) {
@@ -284,17 +284,17 @@ namespace PBR {
                 tInv.t[i] = Inverse(ts.t[i]);
             return tInv;
         }
-        bool IsAnimated() const {
-            for (int i = 0; i < MaxTransforms - 1; ++i)
-                if (t[i] != t[i + 1])
-                    return true;
-            return false;
-        }
-
+//        bool IsAnimated() const {
+//            for (int i = 0; i < MaxTransforms - 1; ++i)
+//                if (t[i] != t[i + 1])
+//                    return true;
+//            return false;
+//        }
+    
     private:
         Transform t[MaxTransforms];
     };
-*/
+
     // BasicScene Definition
     class BasicScene {
     public:
@@ -531,7 +531,7 @@ namespace PBR {
         static constexpr int StartTransformBits = 1 << 0;
         static constexpr int EndTransformBits = 1 << 1;
         static constexpr int AllTransformsBits = (1 << MaxTransforms) - 1;
-//        std::map<std::string, TransformSet> namedCoordinateSystems;
+         std::map<std::string, TransformSet> namedCoordinateSystems;
 //        class Transform renderFromWorld;
 //        InternCache<class Transform> transformCache;
         std::vector<GraphicsState> pushedGraphicsStates;

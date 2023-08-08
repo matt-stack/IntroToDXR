@@ -19,9 +19,10 @@
 #include <memory>
 #include <string>
 #include <string_view>
-#include <span>
 #include <optional>
 #include <vector>
+
+#include "PBR_include/span.h"
 
 //#include <filesystem/path.h>
 
@@ -92,23 +93,34 @@ namespace PBR {
         // because ParserTarget is abstract, BasicSceneBuilder needs to implement all of these
         // pure virtual fns, for now we only use shape
 
-        virtual void Scale(float sx, float sy, float sz, PBR::FileLoc loc) = 0;
+//        virtual void Scale(float sx, float sy, float sz, PBR::FileLoc loc) = 0;
 
         virtual void Shape(const std::string& name, ParsedParameterVector params,
             PBR::FileLoc loc) = 0;
 
         virtual ~ParserTarget();
-/*
-        virtual void Option(const std::string& name, const std::string& value,
-            PBR::FileLoc loc) = 0;
 
+//        virtual void Option(const std::string& name, const std::string& value,
+//            PBR::FileLoc loc) = 0;
+/*
         virtual void Identity(PBR::FileLoc loc) = 0;
         virtual void Translate(float dx, float dy, float dz, PBR::FileLoc loc) = 0;
         virtual void Rotate(float angle, float ax, float ay, float az, PBR::FileLoc loc) = 0;
         virtual void LookAt(float ex, float ey, float ez, float lx, float ly, float lz,
             float ux, float uy, float uz, PBR::FileLoc loc) = 0;
         virtual void ConcatTransform(float transform[16], PBR::FileLoc loc) = 0;
+        */
         virtual void Transform(float transform[16], PBR::FileLoc loc) = 0;
+        virtual void EndOfFiles() = 0;
+        virtual void WorldBegin(PBR::FileLoc loc) = 0;
+//        virtual void MakeNamedMaterial(const std::string& name, ParsedParameterVector params,
+//            PBR::FileLoc loc) = 0;
+        virtual void AttributeBegin(PBR::FileLoc loc) = 0;
+        virtual void AttributeEnd(PBR::FileLoc loc) = 0;
+        virtual void NamedMaterial(const std::string& name, PBR::FileLoc loc) = 0;
+        virtual void AreaLightSource(const std::string& name, ParsedParameterVector params,
+            PBR::FileLoc loc) = 0;
+        /*
         virtual void CoordinateSystem(const std::string&, PBR::FileLoc loc) = 0;
         virtual void CoordSysTransform(const std::string&, PBR::FileLoc loc) = 0;
         virtual void ActiveTransformAll(PBR::FileLoc loc) = 0;
@@ -160,6 +172,7 @@ namespace PBR {
 */
     protected:
         // ParserTarget Protected Methods
+        /*
         template <typename... Args>
         void ErrorExitDeferred(const char* fmt, Args &&...args) const {
             errorExit = true;
@@ -170,12 +183,13 @@ namespace PBR {
             errorExit = true;
             Error(loc, fmt, std::forward<Args>(args)...);
         }
+        */
 
         mutable bool errorExit = false;
     };
 
     // Scene Parsing Declarations
-   // void ParseFiles(ParserTarget* target, std::span<const std::string> filenames);
+    void ParseFiles(ParserTarget* target, PBR::span<const std::string> filenames);
     void ParseString(ParserTarget* target, std::string str);
 
     // Token Definition

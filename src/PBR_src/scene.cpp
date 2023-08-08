@@ -1,5 +1,7 @@
 #include "PBR_include/scene.h"
 #include "PBR_include/file.h"
+#include <iterator>
+#include <algorithm>
 
 namespace PBR{
 
@@ -43,6 +45,26 @@ namespace PBR{
         materials.push_back(std::move(material));
         return int(materials.size() - 1);
     }
+
+    //void BasicScene::AddShapes(PBR::span<ShapeSceneEntity> s)  {
+    void BasicScene::AddShapes(std::vector<PBR::ShapeSceneEntity> s)  {
+       // std::lock_guard<std::mutex> lock(shapeMutex);
+        //std::move(std::begin(s), std::end(s), std::back_inserter(this->shapes)); // what is this triple argument std::move thing?
+        std::move(s.begin(), s.end(), std::back_inserter(this->shapes)); // what is this triple argument std::move thing?
+        // Update, this is actually std::move algorithm, not std::move the utility
+        // which moves from beginning to end into the thrid, which in this case is a 
+        // back_inserter, pretty cool! Though now that I changed this to just take a vector
+        // rather than a PBR::span, it could use std vector's insert to concat this vector,
+        // but I like using std::move now
+    }
+
+
+    // I dont think I need this for Instance Acceleration Structures 
+//    void BasicScene::AddInstanceUses(PBR::span<InstanceSceneEntity> in) {
+//        std::lock_guard<std::mutex> lock(instanceUseMutex);
+//        std::move(std::begin(in), std::end(in), std::back_inserter(instances));
+//    }
+
 
 	// BasicSceneBuilder
 
@@ -97,11 +119,29 @@ namespace PBR{
         pushStack.pop_back();
     }
 
+    void BasicSceneBuilder::NamedMaterial(const std::string& origName, FileLoc loc) {
+        std::string name = NormalizeUTF8(origName);
+        VERIFY_WORLD("NamedMaterial");
+        graphicsState.currentMaterialName = name;
+        graphicsState.currentMaterialIndex = -1;
+    }
+
+    void BasicSceneBuilder::AreaLightSource(const std::string& name,
+        ParsedParameterVector params, FileLoc loc) {
+        VERIFY_WORLD("AreaLightSource");
+        graphicsState.areaLightName = name;
+        graphicsState.areaLightParams = ParameterDictionary(
+            std::move(params), graphicsState.lightAttributes, graphicsState.colorSpace);
+        graphicsState.areaLightLoc = loc;
+    }
+      
+
+    // Transform() as inheritted from ParserTarget
     void BasicSceneBuilder::Transform(float tr[16], FileLoc loc) {
         graphicsState.ForActiveTransforms([=](auto t) {
-            return Transpose(pbrt::Transform(SquareMatrix<4>(pstd::MakeSpan(tr, 16))));
+            return PBR::Transpose(PBR::Transform(SquareMatrix<4>(PBR::MakeSpan(tr, 16))));
             });
-    } // this needs work
+    } // this should work now?
 
 
 
@@ -146,7 +186,8 @@ namespace PBR{
 //            const class Transform* objectFromRender =
 //                transformCache.Lookup(Inverse(*renderFromObject));
 
-            const class Transform* renderFromObject = RenderFromObeject(0); // this needs to have the 
+            const class Transform* renderFromObject{}; // temporary!
+            //const class Transform* renderFromObject = RenderFromObeject(0); // this needs to have the 
             // world space transformation from cta, see scene.h 476 in original branch
             const class Transform* objectFromRender{}; 
 
@@ -161,6 +202,45 @@ namespace PBR{
                 shapes.push_back(std::move(entity));
         }
     }
+
+    void BasicSceneBuilder::WorldBegin(FileLoc loc) {
+        //VERIFY_OPTIONS("WorldBegin");
+        // Reset graphics state for _WorldBegin_
+        currentBlock = BlockState::WorldBlock;
+        for (int i = 0; i < MaxTransforms; ++i)
+            graphicsState.ctm[i] = PBR::Transform();
+        graphicsState.activeTransformBits = AllTransformsBits;
+        namedCoordinateSystems["world"] = graphicsState.ctm;
+
+        // Pass pre-_WorldBegin_ entities to _scene_
+        //scene->SetOptions(filter, film, camera, sampler, integrator, accelerator);
+    }
+
+
+    void BasicSceneBuilder::EndOfFiles() {
+        /*
+        if (currentBlock != BlockState::WorldBlock)
+            ErrorExitDeferred("End of files before \"WorldBegin\".");
+
+        // Ensure there are no pushed graphics states
+        while (!pushedGraphicsStates.empty()) {
+            ErrorExitDeferred("Missing end to AttributeBegin");
+            pushedGraphicsStates.pop_back();
+        }
+
+        if (errorExit)
+            ErrorExit("Fatal errors during scene construction");
+            */
+
+        if (!shapes.empty())
+            scene->AddShapes(shapes);
+//        if (!instanceUses.empty()) // We dont not follow this path of IAS 
+//            scene->AddInstanceUses(instanceUses);
+
+        //scene->Done(); //this Done is just an empty function in the original
+
+    }
+
 
 
 	
