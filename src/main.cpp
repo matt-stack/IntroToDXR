@@ -60,6 +60,7 @@ public:
 		//Utils::LoadModel(config.model, model, material); // config.model is a string, model is a Model
 		Utils::LoadModel(config.model, model, material, myMaterialVector); // config.model is a string, model is a Model
 	//	Utils::CustomModel(model); // config.model is a string, model is a Model
+		PBR::HandlePBRGeom();
 
 		// Initialize the shader compiler
 		D3DShaders::Init_Shader_Compiler(shaderCompiler);

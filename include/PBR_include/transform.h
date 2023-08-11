@@ -23,6 +23,8 @@ namespace PBR {
 
         Transform() = default;
 
+        Transform operator*(const Transform& t2) const;
+
         // Keep working on this and make sure that scene.cpp line 100 works, then do TransformSet
 
             Transform(const SquareMatrix<4>& m) : m(m) {
@@ -52,6 +54,8 @@ namespace PBR {
         SquareMatrix<4> m, mInv;
     };
 
+    Transform Scale(float x, float y, float z); // defined in transform.cpp
+
     // Transform Inline Functions
     inline Transform Inverse(const Transform& t) {
         return Transform(t.GetInverseMatrix(), t.GetMatrix());
@@ -60,6 +64,38 @@ namespace PBR {
     inline Transform Transpose(const Transform& t) {
         return Transform(Transpose(t.GetMatrix()), Transpose(t.GetInverseMatrix()));
     }
+
+    inline Transform Rotate(float sinTheta, float cosTheta, Vector3f axis) {
+        Vector3f a = Normalize(axis);
+        SquareMatrix<4> m;
+        // Compute rotation of first basis vector
+        m[0][0] = std::get<0>(a) * std::get<0>(a) + (1 - std::get<0>(a) * std::get<0>(a)) * cosTheta;
+        m[0][1] = std::get<0>(a) * std::get<1>(a) * (1 - cosTheta) - std::get<2>(a) * sinTheta;
+        m[0][2] = std::get<0>(a) * std::get<2>(a) * (1 - cosTheta) + std::get<1>(a) * sinTheta;
+        m[0][3] = 0;
+
+        // Compute rotations of second and third basis vectors
+        m[1][0] = std::get<0>(a) * std::get<1>(a) * (1 - cosTheta) + std::get<2>(a) * sinTheta;
+        m[1][1] = std::get<1>(a) * std::get<1>(a) + (1 - std::get<1>(a) * std::get<1>(a)) * cosTheta;
+        m[1][2] = std::get<1>(a) * std::get<2>(a) * (1 - cosTheta) - std::get<0>(a) * sinTheta;
+        m[1][3] = 0;
+
+        m[2][0] = std::get<0>(a) * std::get<2>(a) * (1 - cosTheta) - std::get<1>(a) * sinTheta;
+        m[2][1] = std::get<1>(a) * std::get<2>(a) * (1 - cosTheta) + std::get<0>(a) * sinTheta;
+        m[2][2] = std::get<2>(a) * std::get<2>(a) + (1 - std::get<2>(a) * std::get<2>(a)) * cosTheta;
+        m[2][3] = 0;
+
+        return Transform(m, Transpose(m));
+    }
+
+    
+
+    inline Transform Rotate(float theta, Vector3f axis) {
+        float sinTheta = std::sin(Radians(theta));
+        float cosTheta = std::cos(Radians(theta));
+        return Rotate(sinTheta, cosTheta, axis);
+    }
+
 
 
 

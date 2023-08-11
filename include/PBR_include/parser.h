@@ -24,6 +24,9 @@
 
 #include "PBR_include/span.h"
 
+#include <iostream>
+#include <fstream>
+
 //#include <filesystem/path.h>
 
 
@@ -118,7 +121,14 @@ namespace PBR {
         virtual void AttributeBegin(PBR::FileLoc loc) = 0;
         virtual void AttributeEnd(PBR::FileLoc loc) = 0;
         virtual void NamedMaterial(const std::string& name, PBR::FileLoc loc) = 0;
+        virtual void Material(const std::string& name, ParsedParameterVector params,
+            PBR::FileLoc loc) = 0;
         virtual void AreaLightSource(const std::string& name, ParsedParameterVector params,
+            PBR::FileLoc loc) = 0;
+        virtual void Rotate(float angle, float ax, float ay, float az, PBR::FileLoc loc) = 0;
+        virtual void Scale(float sx, float sy, float sz, PBR::FileLoc loc) = 0;
+        virtual void Texture(const std::string& name, const std::string& type,
+            const std::string& texname, ParsedParameterVector params,
             PBR::FileLoc loc) = 0;
         /*
         virtual void CoordinateSystem(const std::string&, PBR::FileLoc loc) = 0;
@@ -189,7 +199,8 @@ namespace PBR {
     };
 
     // Scene Parsing Declarations
-    void ParseFiles(ParserTarget* target, PBR::span<const std::string> filenames);
+    //void ParseFiles(ParserTarget* target, PBR::span<const std::string> filenames);
+    void ParseFiles(ParserTarget* target, std::vector<std::string> filenames);
     void ParseString(ParserTarget* target, std::string str);
 
     // Token Definition
@@ -207,10 +218,10 @@ namespace PBR {
         // Tokenizer Public Methods
         Tokenizer(std::string str, std::string filename,
             std::function<void(const char*, const PBR::FileLoc*)> errorCallback);
-#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
+//#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
         Tokenizer(void* ptr, size_t len, std::string filename,
             std::function<void(const char*, const PBR::FileLoc*)> errorCallback);
-#endif
+//#endif
         ~Tokenizer();
 
         static std::unique_ptr<Tokenizer> CreateFromFile(
@@ -254,13 +265,13 @@ namespace PBR {
         // This function is called if there is an error during lexing.
         std::function<void(const char*, const PBR::FileLoc*)> errorCallback;
 
-#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
+//#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
         // Scene files on disk are mapped into memory for lexing.  We need to
         // hold on to the starting pointer and total length so they can be
         // unmapped in the destructor.
         void* unmapPtr = nullptr;
         size_t unmapLength = 0;
-#endif
+//#endif
 
         // If the input is stdin, then we copy everything until EOF into this
         // string and then start lexing.  This is a little wasteful (versus

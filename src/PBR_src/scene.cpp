@@ -119,19 +119,68 @@ namespace PBR{
         pushStack.pop_back();
     }
 
+
+    void BasicSceneBuilder::Texture(const std::string& origName, const std::string& type,
+        const std::string& texname, ParsedParameterVector params,
+        FileLoc loc) {
+        //std::string name = NormalizeUTF8(origName);
+        std::string name = origName; // just use the original, this might be a source of error 
+        //VERIFY_WORLD("Texture");
+
+        ParameterDictionary dict(std::move(params), graphicsState.textureAttributes);
+            //graphicsState.colorSpace);
+
+        if (type != "float" && type != "spectrum") {
+//            ErrorExitDeferred(
+//                &loc, "%s: texture type unknown. Must be \"float\" or \"spectrum\".", type);
+            return;
+        }
+
+        std::set<std::string>& names =
+            (type == "float") ? floatTextureNames : spectrumTextureNames;
+        if (names.find(name) != names.end()) {
+//            ErrorExitDeferred(&loc, "Redefining texture \"%s\".", name);
+            return;
+        }
+        names.insert(name);
+
+        if (type == "float") { // mstack These need to be implmeneted for textures, see original scene.cpp line 913
+//            scene->AddFloatTexture(
+//                name, TextureSceneEntity(texname, std::move(dict), loc, RenderFromObject()));
+        }
+        else { // mstack these need to be implmeneted for textures
+//            scene->AddSpectrumTexture(
+//                name, TextureSceneEntity(texname, std::move(dict), loc, RenderFromObject()));
+        }
+    }
+
+    void BasicSceneBuilder::Material(const std::string& name, ParsedParameterVector params,
+        FileLoc loc) {
+        //VERIFY_WORLD("Material");
+
+        ParameterDictionary dict(std::move(params), graphicsState.materialAttributes);
+//            graphicsState.colorSpace);
+
+        graphicsState.currentMaterialIndex =
+            scene->AddMaterial(SceneEntity(name, std::move(dict), loc));
+        graphicsState.currentMaterialName.clear();
+    }
+
     void BasicSceneBuilder::NamedMaterial(const std::string& origName, FileLoc loc) {
-        std::string name = NormalizeUTF8(origName);
-        VERIFY_WORLD("NamedMaterial");
+        //std::string name = NormalizeUTF8(origName);
+        std::string name = origName; // just use the original 
+        //VERIFY_WORLD("NamedMaterial");
         graphicsState.currentMaterialName = name;
         graphicsState.currentMaterialIndex = -1;
     }
 
     void BasicSceneBuilder::AreaLightSource(const std::string& name,
         ParsedParameterVector params, FileLoc loc) {
-        VERIFY_WORLD("AreaLightSource");
+        //VERIFY_WORLD("AreaLightSource");
         graphicsState.areaLightName = name;
         graphicsState.areaLightParams = ParameterDictionary(
-            std::move(params), graphicsState.lightAttributes, graphicsState.colorSpace);
+            std::move(params), graphicsState.lightAttributes);
+            //std::move(params), graphicsState.lightAttributes, graphicsState.colorSpace); // dropping the colorSpace
         graphicsState.areaLightLoc = loc;
     }
       
@@ -142,6 +191,17 @@ namespace PBR{
             return PBR::Transpose(PBR::Transform(SquareMatrix<4>(PBR::MakeSpan(tr, 16))));
             });
     } // this should work now?
+
+    void BasicSceneBuilder::Rotate(float angle, float dx, float dy, float dz, FileLoc loc) {
+        graphicsState.ForActiveTransforms(
+            [=](auto t) { return t * PBR::Rotate(angle, Vector3f(dx, dy, dz)); });
+    }
+
+    void BasicSceneBuilder::Scale(float sx, float sy, float sz, FileLoc loc) {
+        graphicsState.ForActiveTransforms(
+            [=](auto t) { return t * PBR::Scale(sx, sy, sz); });
+    }
+
 
 
 
@@ -186,10 +246,11 @@ namespace PBR{
 //            const class Transform* objectFromRender =
 //                transformCache.Lookup(Inverse(*renderFromObject));
 
-            const class Transform* renderFromObject{}; // temporary!
-            //const class Transform* renderFromObject = RenderFromObeject(0); // this needs to have the 
+            //const class Transform* renderFromObject{};
+            const class Transform rtemp = RenderFromObject(0);
+            const class Transform* renderFromObject = &rtemp; // this needs to have the 
             // world space transformation from cta, see scene.h 476 in original branch
-            const class Transform* objectFromRender{}; 
+            const class Transform* objectFromRender{}; // this can be default
 
             ShapeSceneEntity entity(
                 { name, std::move(dict), loc, renderFromObject, objectFromRender,

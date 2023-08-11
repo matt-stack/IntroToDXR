@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "PBR_include/parser.h"
+#include "PBR_include/math.h"
 
 namespace PBR {
 
@@ -32,11 +33,6 @@ namespace PBR {
     struct Allocator {};
     struct Spectrum {};
 
-    using Point2f = std::tuple<float, float>;
-    using Vector2f = std::tuple<float, float>;
-    using Point3f = std::tuple<float, float, float>;
-    using Vector3f = std::tuple<float, float, float>;
-    using Normal3f = std::tuple<float, float, float>;
 /*
     // ParsedParameter Definition
     class ParsedParameter {

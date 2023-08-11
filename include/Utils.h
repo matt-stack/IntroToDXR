@@ -51,5 +51,6 @@ namespace Utils
 namespace PBR
 {
 	std::unique_ptr<PBR::Tokenizer> createFromFile(const std::string& filename);
+	void HandlePBRGeom();
 
 }

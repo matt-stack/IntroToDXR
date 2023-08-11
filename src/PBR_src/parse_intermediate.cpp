@@ -18,21 +18,11 @@
 #include <pbrt/util/progressreporter.h>
 #include <pbrt/util/stats.h>
 #include <pbrt/util/string.h>
-
-#include <double-conversion/double-conversion.h>
 */
+#include <../double-conversion/double-conversion/double-conversion.h>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
-#ifdef PBRT_HAVE_MMAP
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#elif defined(PBRT_IS_WINDOWS)
-#include <windows.h>  // Windows file mapping API
-#endif
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -49,6 +39,7 @@
 #include <codecvt>
 #include <mutex>
 
+#include <windows.h>  // Windows file mapping API
 namespace PBR {
 
     ///////////////////////////////////////////////////////////////////////////
@@ -134,9 +125,9 @@ namespace PBR {
     }
 
     
-//    static double_conversion::StringToDoubleConverter floatParser(
-//        double_conversion::StringToDoubleConverter::ALLOW_HEX, 0. /* empty string value */,
-//        0. /* junk string value */, nullptr /* infinity symbol */, nullptr /* NaN symbol */);
+    static double_conversion::StringToDoubleConverter floatParser(
+        double_conversion::StringToDoubleConverter::ALLOW_HEX, 0. /* empty string value */,
+        0. /* junk string value */, nullptr /* infinity symbol */, nullptr /* NaN symbol */);
 /*
     std::unique_ptr<Tokenizer> Tokenizer::CreateFromFile(
         const std::string& filename,
@@ -298,9 +289,44 @@ namespace PBR {
 		//	ErrorExit(loc, "%s", msg);
 		//};
 
-		std::string str = ReadFileContents(filename);
-		return std::make_unique<PBR::Tokenizer>(std::move(str), filename,
-			std::move(errorCallback));
+		//std::string str = ReadFileContents(filename);
+		//return std::make_unique<PBR::Tokenizer>(std::move(str), filename,
+		//	std::move(errorCallback));
+
+        auto errorReportLambda = [&errorCallback, &filename]() -> std::unique_ptr<Tokenizer> {
+            LPSTR messageBuffer = nullptr;
+            FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+                FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL, ::GetLastError(), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPSTR)&messageBuffer, 0, NULL);
+
+            printf("%s: %s", filename, messageBuffer);
+
+            LocalFree(messageBuffer);
+            return nullptr;
+        };
+
+        HANDLE fileHandle =
+            //CreateFileW(L"C://Users/matts/source/repos/pbrt-v4-scenes/book.pbrt", GENERIC_READ, FILE_SHARE_READ, 0,
+            CreateFileW(WStringFromUTF8(filename).c_str(), GENERIC_READ, FILE_SHARE_READ, 0,
+                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+        if (fileHandle == INVALID_HANDLE_VALUE)
+            return errorReportLambda();
+
+        size_t len = GetFileSize(fileHandle, 0);
+
+        HANDLE mapping = CreateFileMapping(fileHandle, 0, PAGE_READONLY, 0, 0, 0);
+        CloseHandle(fileHandle);
+        if (mapping == 0)
+            return errorReportLambda();
+
+        LPVOID ptr = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+        CloseHandle(mapping);
+        if (!ptr)
+            return errorReportLambda();
+
+        return std::make_unique<Tokenizer>(ptr, len, filename, std::move(errorCallback));
+
 	
 	}
 
@@ -321,7 +347,7 @@ namespace PBR {
         CheckUTF(contents.data(), contents.size());
     }
 
-#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
+//#if defined(PBRT_HAVE_MMAP) || defined(PBRT_IS_WINDOWS)
     Tokenizer::Tokenizer(void* ptr, size_t len, std::string filename,
         std::function<void(const char*, const FileLoc*)> errorCallback)
         : errorCallback(std::move(errorCallback)), unmapPtr(ptr), unmapLength(len) {
@@ -333,7 +359,7 @@ namespace PBR {
         end = pos + len;
         CheckUTF(ptr, len);
     }
-#endif
+//#endif
 
     Tokenizer::~Tokenizer() {
 #ifdef PBRT_HAVE_MMAP
@@ -448,10 +474,10 @@ namespace PBR {
                 value = 10 * value + (t.token[index] - '0');
                 ++index;
             }
-            if (value > std::numeric_limits<int>::max()) {
+            //if (value > std::numeric_limits<int>::max()) {
                 //ErrorExit(&t.loc,
                 //"Numeric value too large to represent as a 32-bit integer.");
-            }
+            //}
             else if (value < std::numeric_limits<int>::lowest()) {
                 //Warning(&t.loc, "Numeric value %d too low to represent as a 32-bit integer.");
             }
@@ -499,10 +525,10 @@ namespace PBR {
             length = endptr - bufp;
         }
         else if (sizeof(float) == sizeof(float)) {
-//            val = floatParser.StringTofloat(bufp, t.token.size(), &length);
+            val = floatParser.StringToFloat(bufp, t.token.size(), &length);
         }
         else {
- //           val = floatParser.StringToDouble(bufp, t.token.size(), &length);
+            val = floatParser.StringToDouble(bufp, t.token.size(), &length);
         }
         if (length == 0) {
 //            ErrorExit(&t.loc, "%s: expected a number", toString(t.token));
@@ -701,6 +727,7 @@ namespace PBR {
         return parameterVector;
     }
 
+    //void parse(ParserTarget* target, std::unique_ptr<Tokenizer> t, std::ofstream myLog) {
     void parse(ParserTarget* target, std::unique_ptr<Tokenizer> t) {
         FormattingParserTarget* formattingTarget =
             dynamic_cast<FormattingParserTarget*>(target);
@@ -715,6 +742,9 @@ namespace PBR {
 
         std::vector<std::unique_ptr<Tokenizer>> fileStack;
         fileStack.push_back(std::move(t));
+        std::ofstream myLog;
+        myLog.open("myLog.txt");
+        myLog << "Writing this to a file again.\n";
 
         std::optional<Token> ungetToken;
 
@@ -968,7 +998,7 @@ namespace PBR {
                 else if (tok->token == "MakeNamedMedium") {
 //                    basicParamListEntrypoint(&ParserTarget::MakeNamedMedium, tok->loc);
                 }
-                else if (tok->token == "Material") {
+                else if (tok->token == "Material") { // need
 //                    basicParamListEntrypoint(&ParserTarget::Material, tok->loc);
                 }
                 else if (tok->token == "MediumInterface") {
@@ -1037,11 +1067,11 @@ namespace PBR {
                 if (tok->token == "ReverseOrientation") {
                     //                    target->ReverseOrientation(tok->loc);
                 }
-                else if (tok->token == "Rotate") {
+                else if (tok->token == "Rotate") { // need
                     float v[4];
                     for (int i = 0; i < 4; ++i)
                         v[i] = parsefloat(*nextToken(TokenRequired));
-//                    target->Rotate(v[0], v[1], v[2], v[3], tok->loc);
+                    target->Rotate(v[0], v[1], v[2], v[3], tok->loc);
                 }
                 else
                     syntaxError(*tok);
@@ -1054,11 +1084,11 @@ namespace PBR {
                 else if (tok->token == "Sampler") {
                     //                    basicParamListEntrypoint(&ParserTarget::Sampler, tok->loc);
                 }
-                else if (tok->token == "Scale") {
+                else if (tok->token == "Scale") { // need
                     float v[3];
                     for (int i = 0; i < 3; ++i)
                         v[i] = parsefloat(*nextToken(TokenRequired));
-//                    target->Scale(v[0], v[1], v[2], tok->loc);
+                    target->Scale(v[0], v[1], v[2], tok->loc);
                 }
                 else
                     syntaxError(*tok);
@@ -1125,7 +1155,7 @@ namespace PBR {
                            // parseError(str.c_str(), &t.loc);
                         });
 
-                    //target->Texture(name, type, texName, std::move(params), tok->loc);
+                    target->Texture(name, type, texName, std::move(params), tok->loc);
                     // I dont think this version of texture is needed, the one example seems to include
                     // texture as a part of Shape along with normal and point3 and stuff
                 }
@@ -1175,6 +1205,9 @@ namespace PBR {
         }
         */
        // else {
+       
+       // set up log
+        
             // Parse scene from input files
             for (const std::string& fn : filenames) {
              //   if (fn != "-")
@@ -1196,6 +1229,7 @@ namespace PBR {
         std::unique_ptr<Tokenizer> t = Tokenizer::CreateFromString(std::move(str), tokError);
         if (!t)
             return;
+       // parse(target, std::move(t));
         parse(target, std::move(t));
 
         target->EndOfFiles();

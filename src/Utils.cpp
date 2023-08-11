@@ -370,7 +370,9 @@ namespace PBR
 	// this is the "main" for absorbing pbrt files and creating the geometry
 	void HandlePBRGeom() {
 
-		std::vector<std::string> filenames = {"geometry.pbrt"};
+		//std::vector<std::string> filenames = {"geometry.pbrt"};
+		//std::vector<std::string> filenames = {"C:/Users/matts/source/repos/pbrt-v4-scenes/book.pbrt"};
+		std::vector<std::string> filenames = {"C://Users/matts/source/repos/pbrt-v4-scenes/book.pbrt"};
 
 		BasicScene scene;
 		BasicSceneBuilder builder(&scene);

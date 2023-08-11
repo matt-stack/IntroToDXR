@@ -511,16 +511,18 @@ namespace PBR {
 
         friend void parse(ParserTarget* scene, std::unique_ptr<Tokenizer> t);
         // BasicSceneBuilder Private Methods
-        /*
+        
+        // renderFromWorld can just be a default init Transform
         class Transform RenderFromObject(int index) const {
-            return pbrt::Transform((renderFromWorld * graphicsState.ctm[index]).GetMatrix());
+            return PBR::Transform((renderFromWorld * graphicsState.ctm[index]).GetMatrix());
         }
 
-        AnimatedTransform RenderFromObject() const {
-            return { RenderFromObject(0), graphicsState.transformStartTime,
-                    RenderFromObject(1), graphicsState.transformEndTime };
-        }
+//        AnimatedTransform RenderFromObject() const {
+//            return { RenderFromObject(0), graphicsState.transformStartTime,
+//                    RenderFromObject(1), graphicsState.transformEndTime };
+//        }
 
+        /*
         bool CTMIsAnimated() const { return graphicsState.ctm.IsAnimated(); }
 */
         // BasicSceneBuilder Private Members
@@ -532,7 +534,7 @@ namespace PBR {
         static constexpr int EndTransformBits = 1 << 1;
         static constexpr int AllTransformsBits = (1 << MaxTransforms) - 1;
          std::map<std::string, TransformSet> namedCoordinateSystems;
-//        class Transform renderFromWorld;
+        class Transform renderFromWorld;
 //        InternCache<class Transform> transformCache;
         std::vector<GraphicsState> pushedGraphicsStates;
         std::vector<std::pair<char, FileLoc>> pushStack;  // 'a': attribute, 'o': object

@@ -6,6 +6,7 @@
 #include <string>
 #include <optional>
 #include <cmath>
+#include <tuple>
 
 namespace PBR {
 
@@ -32,6 +33,44 @@ namespace PBR {
 
     new_mat.print();
 */
+    constexpr float Pi = 3.14159265358979323846;
+
+
+    inline float Radians(float deg) {
+        return (Pi / 180) * deg;
+    }
+    inline float Degrees(float rad) {
+        return (180 / Pi) * rad;
+    }
+
+    using Point2f = std::tuple<float, float>;
+    using Vector2f = std::tuple<float, float>;
+    using Point3f = std::tuple<float, float, float>;
+    using Vector3f = std::tuple<float, float, float>;
+    using Normal3f = std::tuple<float, float, float>;
+
+    template <typename T>
+    inline constexpr T Sqr(T v) {
+        return v * v;
+    }
+
+
+    // math for vector3f
+    //template <typename T>
+    inline float LengthSquared(Vector3f v) {
+        return Sqr(std::get<0>(v)) + Sqr(std::get<1>(v)) + Sqr(std::get<2>(v));
+    }
+
+    //template <typename T>
+    inline float Length(Vector3f v) {
+        using std::sqrt;
+        return sqrt(LengthSquared(v));
+    }
+
+   // template <typename T>
+    inline Vector3f Normalize(Vector3f v) {
+        return { std::get<0>(v) / Length(v), std::get<1>(v) / Length(v), std::get<2>(v) / Length(v)};
+    }
 
     template <int N>
     inline void init(float m[N][N], int i, int j) {}
@@ -189,6 +228,20 @@ namespace PBR {
     inline SquareMatrix<N> operator*(float s, const SquareMatrix<N>& m) {
         return m * s;
     }
+
+    template <int N>
+    inline SquareMatrix<N> operator*(const SquareMatrix<N>& m1,
+        const SquareMatrix<N>& m2) {
+        SquareMatrix<N> r;
+        for (int i = 0; i < N; ++i)
+            for (int j = 0; j < N; ++j) {
+                r[i][j] = 0;
+                for (int k = 0; k < N; ++k)
+                    r[i][j] = FMA(m1[i][k], m2[k][j], r[i][j]);
+            }
+        return r;
+    }
+
 
     template <int N>
     inline SquareMatrix<N> Transpose(const SquareMatrix<N>& m) {

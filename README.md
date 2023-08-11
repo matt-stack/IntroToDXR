@@ -1,4 +1,7 @@
 # PBR study
+
+File format docs: https://pbrt.org/fileformat-v4#describing-the-scene
+
 cmd/pbrt.cpp, [line 282](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/cmd/pbrt.cpp#L282)
 
 * Main, and where the Initialization happens. BasicScene, BasicSceneBuilder are created here, and called in ParseFile. After, the scene is rendered with RenderWaveFront or RenderCPU
@@ -8,7 +11,7 @@ parser.cpp, [line 1842](https://github.com/mmp/pbrt-v4/blob/f94d39f8d90875251310
 
 scene.cpp, [line 261]((https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) if PLY files exist
 
-* The two Shape functions: Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). The line in main that says "Parse provided scene description files" is for the .ply files, because if you follow through the FormattingParserTarget::Shape [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1843) then you see it calls the WritePLY function, and generally talks about creating PLY files. 
+* The two Shape functions: Following ParseFile -> Parse -> switch to Attribute S for Shape -> there are two paths, depending what was called from Main. If the object files have already been created (.ply) then it passes `BasicSceneBuilder` through as the `Parse`'s `ParserTarget`. Then we encounter [Shape()](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L261) for BasicSceneBuilder. Which adds to the new entity to the ongoing `shape` vector in the BasicSceneBuilder [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305).  Otherwise back in main if the ply files arent there, then it passes FormattingParseTarget, which ... basicParamListEntryPoint lambda, you get to the call that starts the triangle mesh. FormattingParserTarget is a child class of ParserTarget, so it can be called in basicParamListEntry's (ParserTarget::*apiFunc). The line in main that says "Parse provided scene description files" is for the .ply files, because if you follow through the FormattingParserTarget::Shape [here](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/parser.cpp#L1843) then you see it calls the WritePLY function, and generally talks about creating PLY files. The geometry pbrt file `geometry.pbrt` includes the calls to the `geometry/mesh_0001.ply` and other mesh information. When it takes the `else` in main, it is expecting to use the pbrt files, which reference individual `.ply` files. The point of the `.ply` files is to remove the geom data from the pbrt file and store it in a file, to remove bulk for better readability
 
 scene.cpp, [line 305](https://github.com/mmp/pbrt-v4/blob/f94d39f8d908752513104d815e66188f5585f446/src/pbrt/scene.cpp#L305) 
 
@@ -34,6 +37,8 @@ gpu/aggregate.cpp [line ](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1d
 
 * The device memory is created with cudaMalloc and the pointer `point3f *pGPU` is pushed into the vector `std::vector<CUdeviceptr> pDeviceDevicePtrs(nMeshes)` via a `CUdeviceptr` call of pGPU
 
+* In regards to reading the PLY meshes and getting indices/vertex, (ReadPLY)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.cpp#L322] as part of `TriQuadMesh` is the source of parsing the ply files and reading out to mesh. It uses the rply header functions calls. The ReadPLY meshis called from the PreparePLYMeshes in gpu/aggregate (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L266]. `TriQuadMesh` is defined in mesh.h (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.h#L82] and has vectors for points, normals, and indices.  
+
 
 Key data structures are 
 BasicSceneBuilder - this is used as the original state when parsing. Holds `GraphicsState graphicsState` and `std::vector<ShapeSceneEntity> shapes`, plus the camera and integrator as `SceneEntity`. BasicSceneBuilder has a member function BasicSceneBuilder::Shape that is called when parsing [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/parser.cpp#L906)
@@ -42,8 +47,37 @@ ShapeSceneEntity - this is like a descriptor (in dx12) to a shape, it holds all 
 
 TriangleMesh - Contains info like [points](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/util/mesh.h#L41), normals, uv's. Very important. In aggregate's BuildBVHForTriangle(), a TriangleMesh `mesh` is create via [Triangle::CreateMesh](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/shapes.cpp#L372) and called [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L372) using the ShapeSceneEntity vector `shapes`. the `mesh` is pushed onto a `std::Vector<TriangleMesh *> meshes` [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L430). Then later that `meshes` vector is cycled through and the GPU memory is created for vertex and indices [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/gpu/aggregate.cpp#L457)
 
+RenderTarget- BasicSceneBuilder extends from the abstract class RenderTarget. RenderTarget has many pure virutal functions that BasicSceneBuilder needs to implmenet so that it can be a non-abstract class like used in main. 
+
 CUdeviceptr - after pDeviceDevicePtrs
  
+
+Random Notes
+
+Transformations are done via the Transform class, but the owner of the matrix is actually graphicsState cta (member of BasicSceneBuilder), and then that is applied to the ubnderlying tranform saved in renderFromWorld in BasicSceneBuilder. 
+
+The flow of seeing a Tranform keyword in the .pbrt file until it is applied to the object is following:
+
+First, in parser.cpp, the parse() function has a Tranform section id, where it hands the rest. Inside, it declares an array of 16 floats called `m` (here)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/parser.cpp#L938]. `m` is populated via `parseFloat()`  and then it sends `m` over to BasicSceneBuilder's Transform function (here)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/parser.cpp#L943]
+
+In the implmention of BasicSceneBuilder's Transform function (here)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/scene.cpp#L577], all it is doing is calling the BasicSceneBuilder member function of graphicState.ForActiveTransforms, which takes a lambda, and it that returns a SquareMatrix via the (Transpose())[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/util/math.h#L1441] given the values it recieved via parse()'s float[16] m argument and tr parameter. This SquareMatrix returned in the lambda is used in `ForActiveTransforms()` to used to set the `TransformSet cta` 
+
+Over to BasicSceneBuilder's Shape() function, it passes along the `renderFromObject` and `objectFromRender` class Tranform variables ((these)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/scene.cpp#L293]), both are gotten from BasicSceneBuilders's GraphicState's RenderFromObject() function (here)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/scene.h#L475]. Then these variables hold the tranforms are passed to the constructor of ShapeSceneEntity entity and pushed onto the main `shapes` vector!
+
+(Btw, when it is referenced as `class Transform` it is called an (Elaborated type specifier)[https://en.cppreference.com/w/cpp/language/elaborated_type_specifier]) 
+
+The renderFromObject() portion of BasicSceneBuilder::Shape() has a reference to both renderFromWorld and graphicsState.ctm. (renderFromWorld)[https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/scene.h#L476] is set during the camera option, and depending on the renderingstate set it can return a default value of Transform. So renderFromWorld can be a default init Transform, and then ctm is the per object transform to that world space.
+
+Note, a pstd::Span, like other spans, is just a ptr and size, plus some helpful functions. And you dont need C++20 like the std version. 
+
+For Windows File opening/reading, this is the correct path syntax (after trying every combination. Docs says you can use either \ or /, but only / worked for me)
+```
+CreateFileW(L"C://Users/matts/source/repos/pbrt-v4-scenes/book.pbrt", GENERIC_READ, FILE_SHARE_READ, 0,
+                OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+```
+
+When its time for textures, need to implement BasicScene::AddFloatTexture and AddSpectrumTexture (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/scene.cpp#L912]
+
 
 
 
