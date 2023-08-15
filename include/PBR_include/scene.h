@@ -25,6 +25,7 @@
 #include <PBR_include/parser.h>
 #include <PBR_include/paramdict.h>
 #include <PBR_include/transform.h>
+#include <PBR_include/mesh.h>
 
 #include <functional>
 #include <map>
@@ -560,6 +561,20 @@ namespace PBR {
         SceneEntity film, integrator, filter, accelerator;
         CameraSceneEntity camera;
     };
+
+    // this is a replacement for going into a intergrator and then wavefront aggreagate.
+    // Im just putting the final parsed geom and assocaited data like textures in this one
+    // place for the whole scene
+    class GeomData
+    {
+    public:
+        GeomData();
+        ~GeomData();
+
+    private:
+        std::map<int, TriQuadMesh> plyMeshes;
+    };
+
 
 }  // namespace pbrt
 

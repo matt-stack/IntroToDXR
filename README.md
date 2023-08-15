@@ -39,6 +39,8 @@ gpu/aggregate.cpp [line ](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1d
 
 * In regards to reading the PLY meshes and getting indices/vertex, (ReadPLY)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.cpp#L322] as part of `TriQuadMesh` is the source of parsing the ply files and reading out to mesh. It uses the rply header functions calls. The ReadPLY meshis called from the PreparePLYMeshes in gpu/aggregate (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L266]. `TriQuadMesh` is defined in mesh.h (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.h#L82] and has vectors for points, normals, and indices.  
 
+There are two places where ReadPLY is called that make sense, on is during `Shape::Create(..)` and the other is in `PreparePLYMesh`. The `PreparePLYMesh` is the one that is in the main flow, the other call seems revelant but is called in the chain for `buildBVHForQuadrics`, where the other one is called during the ocnstructor for OptiXAggregate, which is in the flow (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L1383]. 
+
 
 Key data structures are 
 BasicSceneBuilder - this is used as the original state when parsing. Holds `GraphicsState graphicsState` and `std::vector<ShapeSceneEntity> shapes`, plus the camera and integrator as `SceneEntity`. BasicSceneBuilder has a member function BasicSceneBuilder::Shape that is called when parsing [here](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1de0eb8ee6c11f192d0a64dd/src/pbrt/parser.cpp#L906)
