@@ -302,7 +302,15 @@ namespace PBR{
 
     }
 
+// GeomData class functions---
 
+    GeomData::GeomData()
+    {
+    }
+
+    GeomData::~GeomData()
+    {
+    }
 
 	
 }

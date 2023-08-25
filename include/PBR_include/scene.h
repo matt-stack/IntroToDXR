@@ -352,14 +352,16 @@ namespace PBR {
             std::map<int, std::vector<Light>*>* shapeIndexToAreaLights);
 
 //        std::map<std::string, Medium> CreateMedia();
-/*
-        Primitive CreateAggregate(
+        //Primitive CreateAggregate( // dont think we need to out a primative (for accel)
+        void CreateAggregate(
             const NamedTextures& textures,
-            const std::map<int, pstd::vector<Light>*>& shapeIndexToAreaLights,
-            const std::map<std::string, Medium>& media,
+            const std::map<int, std::vector<Light>*>& shapeIndexToAreaLights,
             const std::map<std::string, Material>& namedMaterials,
             const std::vector<Material>& materials);
+
+        // NEED CREATETEXTURE
             
+/*
         std::unique_ptr<Integrator> CreateIntegrator(Camera camera, Sampler sampler,
             Primitive accel,
             std::vector<Light> lights) const;
@@ -564,12 +566,14 @@ namespace PBR {
 
     // this is a replacement for going into a intergrator and then wavefront aggreagate.
     // Im just putting the final parsed geom and assocaited data like textures in this one
-    // place for the whole scene
+    // place for the whole scene. I will follow the flow from RenderCPU
     class GeomData
     {
     public:
         GeomData();
         ~GeomData();
+
+        // going to be using BasicScenes CreateAggregate and others to set this all up
 
     private:
         std::map<int, TriQuadMesh> plyMeshes;

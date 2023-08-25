@@ -39,7 +39,15 @@ gpu/aggregate.cpp [line ](https://github.com/mmp/pbrt-v4/blob/05ff05e1ded8299b1d
 
 * In regards to reading the PLY meshes and getting indices/vertex, (ReadPLY)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.cpp#L322] as part of `TriQuadMesh` is the source of parsing the ply files and reading out to mesh. It uses the rply header functions calls. The ReadPLY meshis called from the PreparePLYMeshes in gpu/aggregate (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L266]. `TriQuadMesh` is defined in mesh.h (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/util/mesh.h#L82] and has vectors for points, normals, and indices.  
 
-There are two places where ReadPLY is called that make sense, on is during `Shape::Create(..)` and the other is in `PreparePLYMesh`. The `PreparePLYMesh` is the one that is in the main flow, the other call seems revelant but is called in the chain for `buildBVHForQuadrics`, where the other one is called during the ocnstructor for OptiXAggregate, which is in the flow (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L1383]. 
+(Old, see below) There are two places where ReadPLY is called that make sense, on is during `Shape::Create(..)` and the other is in `PreparePLYMesh`. The `PreparePLYMesh` is the one that is in the main flow, the other call seems revelant but is called in the chain for `buildBVHForQuadrics`, where the other one is called during the ocnstructor for OptiXAggregate, which is in the flow (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/gpu/aggregate.cpp#L1383]. 
+
+The above stands, but there is actually an easier way, and it the `Shape::Create()` (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/shapes.cpp#L1384] I dismissed at first. In the real PBRT flow, all this is called for the CPURender, which I fine because I just want geom, textures, materials, etc then Im going to back to DX. `BasicScene::CreateAggregate()` (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/scene.cpp#L1352] called from the main-esc `RenderCPU(BasicScene)` (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/cpu/render.cpp#L47]. `RenderCPU` has fundimental calls to `CreateLights`, `CreateMaterials`, and `CreateAggregate` (which is geom). Side note: `CreateLights` also has a call to `Shape::Create()` that looks oddly redundant, but above it there is a break statement for elements of Shape that are not lights (== -1) then it breaks out. 
+
+`BasicScene::CreateAggregate()` has switch over the types of shapes, like primative, non-animated, animated, and instanced. For the basic examples Im interested in, I believe I only need to cover non-animated and instanced. The non-animated calls to our friend `Shape::Create()` and kicks off the ReadPLY fun (if said shape is a plymesh). This is the flow I will replicate.
+
+`Shape::Create()` (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/shapes.cpp#L1384] has switch over all the different types of shapes and the fun one is plymesh which calls to `TriQuadMesh::ReadPLY()` and then displaces after that if it needs to for displacement maps
+
+
 
 
 Key data structures are 
@@ -79,6 +87,8 @@ CreateFileW(L"C://Users/matts/source/repos/pbrt-v4-scenes/book.pbrt", GENERIC_RE
 ```
 
 When its time for textures, need to implement BasicScene::AddFloatTexture and AddSpectrumTexture (here)[https://github.com/mmp/pbrt-v4/blob/ce95acb9b94fdd2f4918bca643310ccfd481b1fa/src/pbrt/scene.cpp#L912]
+
+There are two calls to `PreparePLYMeshes` inc lose section, the first is on regular scene geom, and the second is on the instanced geom. 
 
 
 
