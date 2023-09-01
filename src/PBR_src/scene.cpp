@@ -1,5 +1,6 @@
 #include "PBR_include/scene.h"
 #include "PBR_include/file.h"
+#include "PBR_include/primative.h"
 #include <iterator>
 #include <algorithm>
 
@@ -302,14 +303,39 @@ namespace PBR{
 
     }
 
-// GeomData class functions---
+// GeomData class functions
 
     GeomData::GeomData()
-    {
+    { // empty init for now
     }
 
     GeomData::~GeomData()
     {
+    }
+
+    void GeomData::PrepareResourceGather(BasicScene& scene) {
+        // going to be calling BasicScene member functions
+
+        // Textures
+        NamedTextures textures = scene.CreateTextures();
+
+        // Lights
+//        std::map<int, std::vector<Light>*> shapeIndexToAreaLights;
+//        std::vector<Light> lights =
+//            scene.CreateLights(textures, &shapeIndexToAreaLights);
+
+        // Materials
+        std::map<std::string, PBR::Material> namedMaterials;
+        std::vector<PBR::Material> materials;
+        scene.CreateMaterials(textures, &namedMaterials, &materials);
+
+        // Geometry
+        std::vector<Primative> geometry;
+        scene.CreateAggregate(textures, shapeIndexToAreaLights,
+            namedMaterials, materials);
+
+
+
     }
 
 	

@@ -68,6 +68,9 @@ namespace PBR {
     struct Material {};
 
     // placeholder
+    struct FloatTexture {}; 
+
+    // placeholder
     //struct Transform {};
 
     // SceneEntity Definition
@@ -572,6 +575,14 @@ namespace PBR {
     public:
         GeomData();
         ~GeomData();
+
+        void PrepareResourceGather(BasicScene &scene); 
+        // this will call all the fns like CreateTexture, CreateGeometry (mirror to CreateAggregate)
+
+
+        void ResourceGather(BasicScene& scene); 
+        // this will fill GeomDatas members with all
+        // the textures and geomdata 
 
         // going to be using BasicScenes CreateAggregate and others to set this all up
 

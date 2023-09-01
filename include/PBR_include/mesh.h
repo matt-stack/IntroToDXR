@@ -8,6 +8,56 @@
 #include "PBR_include/parser.h"
 #include "PBR_include/math.h"
 namespace PBR {
+
+
+    // TriangleMesh Definition
+    class TriangleMesh {
+    public:
+        // TriangleMesh Public Methods
+        TriangleMesh(const Transform& renderFromObject, bool reverseOrientation,
+            std::vector<int> vertexIndices, std::vector<Point3f> p,
+            std::vector<Vector3f> S, std::vector<Normal3f> N,
+            std::vector<Point2f> uv, std::vector<int> faceIndices, Allocator alloc);
+
+        std::string ToString() const;
+
+        static void Init(Allocator alloc);
+
+        // TriangleMesh Public Members
+        int nTriangles, nVertices;
+        const int* vertexIndices = nullptr;
+        const Point3f* p = nullptr;
+        const Normal3f* n = nullptr;
+        const Vector3f* s = nullptr;
+        const Point2f* uv = nullptr;
+        const int* faceIndices = nullptr;
+        bool reverseOrientation, transformSwapsHandedness;
+    };
+
+    // BilinearPatchMesh Definition
+    class BilinearPatchMesh {
+    public:
+        // BilinearPatchMesh Public Methods
+        BilinearPatchMesh(const Transform& renderFromObject, bool reverseOrientation,
+            std::vector<int> vertexIndices, std::vector<Point3f> p,
+            std::vector<Normal3f> N, std::vector<Point2f> uv,
+            std::vector<int> faceIndices);
+
+        std::string ToString() const;
+
+        static void Init(Allocator alloc);
+
+        // BilinearPatchMesh Public Members
+        bool reverseOrientation, transformSwapsHandedness;
+        int nPatches, nVertices;
+        const int* vertexIndices = nullptr;
+        const Point3f* p = nullptr;
+        const Normal3f* n = nullptr;
+        const Point2f* uv = nullptr;
+        const int* faceIndices = nullptr;
+    };
+
+
     struct TriQuadMesh {
         // TriQuadMesh Public Methods
         static TriQuadMesh ReadPLY(const std::string& filename);

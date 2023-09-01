@@ -999,7 +999,7 @@ namespace PBR {
 //                    basicParamListEntrypoint(&ParserTarget::MakeNamedMedium, tok->loc);
                 }
                 else if (tok->token == "Material") { // need
-//                    basicParamListEntrypoint(&ParserTarget::Material, tok->loc);
+                    basicParamListEntrypoint(&ParserTarget::Material, tok->loc);
                 }
                 else if (tok->token == "MediumInterface") {
                     std::string_view n = dequoteString(*nextToken(TokenRequired));
@@ -1156,8 +1156,6 @@ namespace PBR {
                         });
 
                     target->Texture(name, type, texName, std::move(params), tok->loc);
-                    // I dont think this version of texture is needed, the one example seems to include
-                    // texture as a part of Shape along with normal and point3 and stuff
                 }
                 else
                     syntaxError(*tok);
