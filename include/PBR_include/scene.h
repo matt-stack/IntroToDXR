@@ -356,9 +356,8 @@ namespace PBR {
 
 //        std::map<std::string, Medium> CreateMedia();
         //Primitive CreateAggregate( // dont think we need to out a primative (for accel)
-        void CreateAggregate(
+        void CreateGeometry(
             const NamedTextures& textures,
-            const std::map<int, std::vector<Light>*>& shapeIndexToAreaLights,
             const std::map<std::string, Material>& namedMaterials,
             const std::vector<Material>& materials);
 

@@ -63,7 +63,7 @@ namespace PBR {
 
 
     // BilinearPatch Definition
-    class BilinearPatch {
+    class BilinearPatch : public Shape {
     public:
         // BilinearPatch Public Methods
         BilinearPatch(const BilinearPatchMesh* mesh, int meshIndex, int blpIndex);
@@ -102,12 +102,13 @@ namespace PBR {
         
             //DirectionCone NormalBounds() const;
 
-        std::string ToString() const;
+            std::string ToString() const; // no need for this but I keep it around, for brevity
 
         
             float Area() const { return area; }
 
-        
+            // DXR will provide all this
+/*        
             static SurfaceInteraction InteractionFromIntersection(const BilinearPatchMesh* mesh,
                 int blpIndex, Point2f uv,
                 Float time, Vector3f wo) {
@@ -210,6 +211,8 @@ namespace PBR {
 
             return isect;
         }
+        */ 
+
 
     private:
         // BilinearPatch Private Methods
@@ -238,7 +241,7 @@ namespace PBR {
 
             // Check if planar vertices form a rectangle
             Point3f pCenter = (p00 + p01 + p10 + p11) / 4;
-            Float d2[4] = { DistanceSquared(p00, pCenter), DistanceSquared(p01, pCenter),
+            float d2[4] = { DistanceSquared(p00, pCenter), DistanceSquared(p01, pCenter),
                            DistanceSquared(p10, pCenter), DistanceSquared(p11, pCenter) };
             for (int i = 1; i < 4; ++i)
                 if (std::abs(d2[i] - d2[0]) / d2[0] > 1e-4f)
@@ -248,9 +251,9 @@ namespace PBR {
 
         // BilinearPatch Private Members
         int meshIndex, blpIndex;
-        static pstd::vector<const BilinearPatchMesh*>* allMeshes;
-        Float area;
-        static constexpr Float MinSphericalSampleArea = 1e-4;
+        static std::vector<const BilinearPatchMesh*>* allMeshes;
+        float area;
+        static constexpr float MinSphericalSampleArea = 1e-4;
     };
 
 
