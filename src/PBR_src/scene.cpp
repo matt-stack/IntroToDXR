@@ -66,6 +66,188 @@ namespace PBR{
 //        std::move(std::begin(in), std::end(in), std::back_inserter(instances));
 //    }
 
+    // calls Shape::Create, which calls ReadPLY
+    void BasicScene::CreateGeometry(
+        const NamedTextures& textures,
+        const std::map<std::string, PBR::Material>& namedMaterials,
+        const std::vector<PBR::Material>& materials) {
+        Allocator alloc;
+        /*
+        auto findMedium = [&media](const std::string& s, const FileLoc* loc) -> Medium {
+            if (s.empty())
+                return nullptr;
+
+            auto iter = media.find(s);
+            if (iter == media.end())
+                ErrorExit(loc, "%s: medium not defined", s);
+            return iter->second;
+        };
+        */
+        // Primitives
+        auto getAlphaTexture = [&](const ParameterDictionary& parameters,
+            const FileLoc* loc) -> FloatTexture {
+                std::string alphaTexName = parameters.GetTexture("alpha");
+                if (!alphaTexName.empty()) {
+                    if (auto iter = textures.floatTextures.find(alphaTexName);
+                        iter != textures.floatTextures.end())
+                        return iter->second;
+                    else
+                        ErrorExit(loc, "%s: couldn't find float texture for \"alpha\" parameter.",
+                            alphaTexName);
+                }
+                else if (Float alpha = parameters.GetOneFloat("alpha", 1.f); alpha < 1.f)
+                    return alloc.new_object<FloatConstantTexture>(alpha);
+                else
+                    return nullptr;
+        };
+
+        // Non-animated shapes
+        auto CreatePrimitivesForShapes =
+            [&](std::vector<ShapeSceneEntity>& shapes) -> std::vector<Primitive> {
+            // Parallelize Shape::Create calls, which will in turn
+            // parallelize PLY file loading, etc...
+            std::vector<std::vector<PBR::Shape>> shapeVectors(shapes.size());
+            ParallelFor(0, shapes.size(), [&](int64_t i) {
+                const auto& sh = shapes[i];
+                shapeVectors[i] = Shape::Create(
+                    sh.name, sh.renderFromObject, sh.objectFromRender, sh.reverseOrientation,
+                    sh.parameters, textures.floatTextures, &sh.loc, alloc);
+                });
+
+            std::vector<Primitive> primitives;
+            for (size_t i = 0; i < shapes.size(); ++i) {
+                auto& sh = shapes[i];
+                pstd::vector<pbrt::Shape>& shapes = shapeVectors[i];
+                if (shapes.empty())
+                    continue;
+
+                FloatTexture alphaTex = getAlphaTexture(sh.parameters, &sh.loc);
+                sh.parameters.ReportUnused();  // do now so can grab alpha...
+
+                pbrt::Material mtl = nullptr;
+                if (!sh.materialName.empty()) {
+                    auto iter = namedMaterials.find(sh.materialName);
+                    if (iter == namedMaterials.end())
+                        ErrorExit(&sh.loc, "%s: no named material defined.", sh.materialName);
+                    mtl = iter->second;
+                }
+                else {
+                    CHECK_LT(sh.materialIndex, materials.size());
+                    mtl = materials[sh.materialIndex];
+                }
+
+                pbrt::MediumInterface mi(findMedium(sh.insideMedium, &sh.loc),
+                    findMedium(sh.outsideMedium, &sh.loc));
+
+                auto iter = shapeIndexToAreaLights.find(i);
+                for (size_t j = 0; j < shapes.size(); ++j) {
+                    // Possibly create area light for shape
+                    Light area = nullptr;
+                    // Will not be present in the map if it has an "interface"
+                    // material...
+                    if (sh.lightIndex != -1 && iter != shapeIndexToAreaLights.end())
+                        area = (*iter->second)[j];
+
+                    if (!area && !mi.IsMediumTransition() && !alphaTex)
+                        primitives.push_back(new SimplePrimitive(shapes[j], mtl));
+                    else
+                        primitives.push_back(
+                            new GeometricPrimitive(shapes[j], mtl, area, mi, alphaTex));
+                }
+                sh.parameters.FreeParameters();
+                sh = ShapeSceneEntity();
+            }
+            return primitives;
+        };
+
+        LOG_VERBOSE("Starting shapes");
+        std::vector<Primitive> primitives = CreatePrimitivesForShapes(shapes);
+
+        shapes.clear();
+        shapes.shrink_to_fit();
+
+        std::vector<Primitive> animatedPrimitives =
+            CreatePrimitivesForAnimatedShapes(animatedShapes);
+        primitives.insert(primitives.end(), animatedPrimitives.begin(),
+            animatedPrimitives.end());
+
+        animatedShapes.clear();
+        animatedShapes.shrink_to_fit();
+        LOG_VERBOSE("Finished shapes");
+
+        // Instance definitions
+        LOG_VERBOSE("Starting instances");
+        std::map<InternedString, Primitive> instanceDefinitions;
+        std::mutex instanceDefinitionsMutex;
+        std::vector<std::map<InternedString, InstanceDefinitionSceneEntity*>::iterator>
+            instanceDefinitionIterators;
+        for (auto iter = this->instanceDefinitions.begin();
+            iter != this->instanceDefinitions.end(); ++iter)
+            instanceDefinitionIterators.push_back(iter);
+        ParallelFor(0, instanceDefinitionIterators.size(), [&](int64_t i) {
+            auto& inst = *instanceDefinitionIterators[i];
+
+            std::vector<Primitive> instancePrimitives =
+                CreatePrimitivesForShapes(inst.second->shapes);
+            std::vector<Primitive> movingInstancePrimitives =
+                CreatePrimitivesForAnimatedShapes(inst.second->animatedShapes);
+            instancePrimitives.insert(instancePrimitives.end(),
+                movingInstancePrimitives.begin(),
+                movingInstancePrimitives.end());
+
+            if (instancePrimitives.size() > 1) {
+                Primitive bvh = new BVHAggregate(std::move(instancePrimitives));
+                instancePrimitives.clear();
+                instancePrimitives.push_back(bvh);
+            }
+
+            std::lock_guard<std::mutex> lock(instanceDefinitionsMutex);
+            if (instancePrimitives.empty())
+                instanceDefinitions[inst.first] = nullptr;
+            else
+                instanceDefinitions[inst.first] = instancePrimitives[0];
+
+            delete inst.second;
+            inst.second = nullptr;
+            });
+
+        this->instanceDefinitions.clear();
+
+        // Instances
+        for (const auto& inst : instances) {
+            auto iter = instanceDefinitions.find(inst.name);
+            if (iter == instanceDefinitions.end())
+                ErrorExit(&inst.loc, "%s: object instance not defined", inst.name);
+
+            if (!iter->second)
+                // empty instance
+                continue;
+
+            if (inst.renderFromInstance)
+                primitives.push_back(
+                    new TransformedPrimitive(iter->second, inst.renderFromInstance));
+            else {
+                primitives.push_back(
+                    new AnimatedPrimitive(iter->second, *inst.renderFromInstanceAnim));
+                delete inst.renderFromInstanceAnim;
+            }
+        }
+
+        instances.clear();
+        instances.shrink_to_fit();
+        LOG_VERBOSE("Finished instances");
+
+        // Accelerator
+        Primitive aggregate = nullptr;
+        LOG_VERBOSE("Starting top-level accelerator");
+        if (!primitives.empty())
+            aggregate = CreateAccelerator(accelerator.name, std::move(primitives),
+                accelerator.parameters);
+        LOG_VERBOSE("Finished top-level accelerator");
+        return aggregate;
+    }
+
+
 
 	// BasicSceneBuilder
 
@@ -331,8 +513,8 @@ namespace PBR{
 
         // Geometry
         std::vector<Primative> geometry;
-        scene.CreateAggregate(textures, shapeIndexToAreaLights,
-            namedMaterials, materials);
+        //scene.CreateAggregate(textures, shapeIndexToAreaLights,
+        scene.CreateGeometry(textures, namedMaterials, materials);
 
 
 
