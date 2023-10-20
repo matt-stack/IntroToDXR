@@ -2,6 +2,7 @@
 
 // Shadow Ray
 // Miss shader and AnyHit shader with RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH
+// Though the anyhit is never called because OPAQUE flag, its just here for experiments
 
 // ---[ Closest Hit Shader ]---
 

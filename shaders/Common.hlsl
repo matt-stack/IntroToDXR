@@ -207,6 +207,13 @@ float4 GetMaterialDiffuse(int matID)
 float3 worldHitPosition() {
 
 	float3 worldRayHit = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
+	// these intrinsic functions are shader specific, and are updated based on RayTCurrent
+	// (from https://learn.microsoft.com/en-us/windows/win32/direct3d12/raytcurrent)
+	// In the any hit shader, it represents the distance to the current intersection being reported.
+
+	// In the closest hit shader, it represents the distance to the closest intersection accepted.
+
+	// In the miss shader, it is equal to TMax passed to the TraceRay call.
 
 	return worldRayHit;
 }
@@ -300,6 +307,26 @@ float3 getCosHemisphereSample(inout uint randSeed, float3 hitNorm)
 	return tangent * (r * cos(phi).x) + bitangent * (r * sin(phi)) + hitNorm.xyz * sqrt(1 - randVal.x);
 }
 
+
+// ------------------- [DI]----------------------
+
+float calcDI(float3 barycentric_normal, float3 camera_dir) {
+	// calculates phong lighting diffuse + specular (no ambient), returns a float
+	float3 curr_hit_pos = worldHitPosition();
+	float3 light_dir = normalize(float3(my_lights.x, my_lights.y, my_lights.z) - curr_hit_pos);
+
+	float lam_cos = max(dot(barycentric_normal, light_dir), 0.0f); // lamberts cos, put some respect on his name
+
+	float3 ref_light = reflect(light_dir, barycentric_normal);
+
+	float spec = pow(max(dot(camera_dir, ref_light), 0.0f), 16);
+
+	return lam_cos + (spec * 0.4);
+
+}
+
+
+
 // ----------------- [SHADOWS]-------------------
 
 // traceShadow return float (from shadowpayload) because we only want to know if its occluded
@@ -344,7 +371,7 @@ float traceShadow() {
 
 // ------------------- [AO]----------------------
 // uses shadow miss and any_hit (it doesnt actually use any_hit / hit group because )
-float traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=2.f) {
+float traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=0.8f) {
 //float3 traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=2.f) {
 	float AO_val = 0.f;
 
@@ -367,7 +394,7 @@ float traceAO(float3 barcentric_normal, int num_rays=32, float AO_range=2.f) {
 		//AORay.Direction = float3(5.f, -15.f, 0.f);
 		//AORay.Direction = normalize(worldDir - AORay.Origin); // WorldDir is already a direction, dont need this
 
-		AORay.TMin = 0.000001f;
+		AORay.TMin = 0.001f;
 		AORay.TMax = AO_range;	
 	
 		// Trace the ray

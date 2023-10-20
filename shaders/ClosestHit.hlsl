@@ -32,6 +32,7 @@
 [shader("closesthit")]
 void ClosestHit(inout HitInfo payload, Attributes attrib)
 {
+	float3 finalColor;
 	uint triangleIndex = PrimitiveIndex();
 	float3 barycentrics = float3((1.0f - attrib.uv.x - attrib.uv.y), attrib.uv.x, attrib.uv.y); // w, u, v 
 	VertexAttributes vertex = GetVertexAttributes(triangleIndex, barycentrics);
@@ -43,16 +44,25 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	int mat = GetMaterialId(triangleIndex);
 	float3 RGB = GetMaterialDiffuse(mat);
 
+	float3 camera_dir = WorldRayDirection();
+	float DI = calcDI(barycentric_normal, camera_dir);
+
+	RGB *= DI;
+
+	// Likely you have a pool of canidate lights, then randomly sample one to launch a ray towards,
+	// you implictly have the direction, and you launch a ray to check if anything is in the way of the light
+	// ray (occulusion). If it is visible to the light source, then using the incoming light direction you 
+	// can 
+
+	// whether lights just points (like this case), or they have vertices, they can have extra info like
+	// intensity, color, a texture, etc. You query this when you chose the light sample. 
+
 	float occlusion_val = traceShadow();
 
 	float AO_val = traceAO(barycentric_normal);
-	//float3 AO_val = traceAO(barycentric_normal);
-
-	float3 finalColor;
 
 	//RGB + shadow contribution
 
-	//if (shadowPayload.isVis.x == 1.f) {
 	if (occlusion_val == 1.f) {
 		finalColor =  float3( RGB.x * 1.f, RGB.y * 1.f, RGB.z * 1.f );
 	}
@@ -60,6 +70,7 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 		finalColor = float3( RGB.x * 0.5f, RGB.y * 0.5f, RGB.z * 0.5f );
 	}
 
+	// Adding AO contribution
 	finalColor *= AO_val;
 
 	// visualize normals
