@@ -347,6 +347,35 @@ namespace D3DResources
 		memcpy(resources.miscBufferCBStart, &resources.miscBufferData, sizeof(miscBuffer));
 	}
 
+
+	void Create_Light_CB(D3D12Global& d3d, D3D12Resources& resources) {
+		Create_Constant_Buffer(d3d, &resources.lightBufferCB, sizeof(LightPos));
+#if NAME_D3D_RESOURCES
+		resources.lightBufferCB->SetName(L"Light Constant Buffer for root constant");
+#endif
+
+		HRESULT hr = resources.lightBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.lightBufferCBStart));
+		Utils::Validate(hr, L"Error: failed to map light buffer constant buffer!");
+
+		memcpy(resources.lightBufferCBStart, &resources.light_pos, sizeof(LightPos));
+	}
+
+
+	void Create_MissShaderBuffer_CB(D3D12Global& d3d, D3D12Resources& resources) {
+		Create_Constant_Buffer(d3d, &resources.missShaderBufferCB, sizeof(missShaderBuffer));
+#if NAME_D3D_RESOURCES
+		resources.missShaderBufferCB->SetName(L"Miss Shader Buffer Constant Buffer");
+#endif
+
+//		resources.missShaderBufferData.frame_counter.x = d3d.frameIndex;
+//		resources.missShaderBufferData.has_moved.x = d3d.has_moved;
+
+		HRESULT hr = resources.missShaderBufferCB->Map(0, nullptr, reinterpret_cast<void**>(&resources.missShaderBufferCBStart));
+		Utils::Validate(hr, L"Error: failed to map misc buffer constant buffer!");
+
+		memcpy(resources.missShaderBufferCBStart, &resources.missShaderBufferData, sizeof(missShaderBuffer));
+	}
+	
 	/**
 	* Create the RTV descriptor heap. Render Target View, non-shader visable
 	*/
@@ -1238,7 +1267,8 @@ namespace DXR
 		ranges[0].BaseShaderRegister = 0;
 		//ranges[0].NumDescriptors = 2;
 		//ranges[0].NumDescriptors = 3;
-		ranges[0].NumDescriptors = 4; // now its 4 because I added miscBuffer
+		//ranges[0].NumDescriptors = 4; // now its 4 because I added miscBuffer
+		ranges[0].NumDescriptors = 5; // now its 4 because I added missShaderBuffer
 		ranges[0].RegisterSpace = 0;
 		ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 		ranges[0].OffsetInDescriptorsFromTableStart = 0;
@@ -1251,7 +1281,8 @@ namespace DXR
 		ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		//ranges[1].OffsetInDescriptorsFromTableStart = 2;
 		//ranges[1].OffsetInDescriptorsFromTableStart = 3; // mstack this was the missing piece!
-		ranges[1].OffsetInDescriptorsFromTableStart = 4; // mstack this was the missing piece!
+		//ranges[1].OffsetInDescriptorsFromTableStart = 4; // mstack this was the missing piece!
+		ranges[1].OffsetInDescriptorsFromTableStart = 5; // mstack this was the missing piece- missshaderbuffer!
 
 		ranges[2].BaseShaderRegister = 0;
 		ranges[2].NumDescriptors = 4;
@@ -1260,7 +1291,8 @@ namespace DXR
 		//ranges[2].OffsetInDescriptorsFromTableStart = 3;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 4;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 5;
-		ranges[2].OffsetInDescriptorsFromTableStart = 6; // new because extra UAV Acc Buffer
+		//ranges[2].OffsetInDescriptorsFromTableStart = 6; // new because extra UAV Acc Buffer
+		ranges[2].OffsetInDescriptorsFromTableStart = 7; // new because extra missshader
 
 		D3D12_ROOT_PARAMETER param0 = {};
 		param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -1268,7 +1300,15 @@ namespace DXR
 		param0.DescriptorTable.NumDescriptorRanges = _countof(ranges);
 		param0.DescriptorTable.pDescriptorRanges = ranges;
 
-		D3D12_ROOT_PARAMETER rootParams[1] = { param0 };
+		D3D12_ROOT_PARAMETER param1 = {};
+		param1.ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+		param1.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		param1.Constants.ShaderRegister = 25;
+		param1.Constants.Num32BitValues = 4; // 16 byte float4
+
+
+		//D3D12_ROOT_PARAMETER rootParams[2] = { param0, param1 };
+		D3D12_ROOT_PARAMETER rootParams[2] = { param1, param0 };
 
 		D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
 		rootDesc.NumParameters = _countof(rootParams);
@@ -1291,6 +1331,38 @@ namespace DXR
 		dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", true)); // original
 		//dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.miss);
+
+
+		D3D12_DESCRIPTOR_RANGE ranges[1];
+
+		ranges[0].BaseShaderRegister = 9;
+		//ranges[0].NumDescriptors = 2;
+		//ranges[0].NumDescriptors = 3;
+		ranges[0].NumDescriptors = 1; // now its 4 because I added miscBuffer
+		ranges[0].RegisterSpace = 0;
+		ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+		ranges[0].OffsetInDescriptorsFromTableStart = 0;
+		// ^ this translates as three CBVs, then you need to make sure the following are offset correctly
+
+		D3D12_ROOT_PARAMETER param0 = {};
+		param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		param0.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		param0.DescriptorTable.NumDescriptorRanges = _countof(ranges);
+		param0.DescriptorTable.pDescriptorRanges = ranges;
+
+		D3D12_ROOT_PARAMETER rootParams[1] = { param0 };
+
+		D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
+		rootDesc.NumParameters = _countof(rootParams);
+		rootDesc.pParameters = rootParams;
+		rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
+
+		// Create the root signature
+		dxr.miss.pRootSignature = D3D12::Create_Root_Signature(d3d, rootDesc);
+#if NAME_D3D_RESOURCES
+		dxr.miss.pRootSignature->SetName(L"DXR miss shader Root Signature");
+#endif
+
 	}
 
 	/**
@@ -1343,6 +1415,7 @@ namespace DXR
 		// 1 for Hit Group
 		// 1 for SHADOW Hit Group // new +1
 		// 2 for RayGen Root Signature (root-signature and association)
+		// 2 for Miss Root Signature (root-signature and association) // new +2
 		// 2 for Shader Config (config and association)
 		// 2 for Shadow Shader Config (config and association) // new +2 -- mm maybe not
 		// 1 for Global Root Signature
@@ -1355,8 +1428,8 @@ namespace DXR
 		UINT index = 0;
 		vector<D3D12_STATE_SUBOBJECT> subobjects;
 		//subobjects.resize(10);
-		subobjects.resize(13);
-		//subobjects.resize(15);
+		//subobjects.resize(13);
+		subobjects.resize(15);
 
 		// Add state subobject for the RGS
 		D3D12_EXPORT_DESC rgsExportDesc = {};
@@ -1558,7 +1631,8 @@ namespace DXR
 
 		// Create a list of the shader export names that use the root signature
 		//const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5" };
-		const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5", L"ShadowHitGroup", L"ShadowMiss_5" };
+		//const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup", L"Miss_5", L"ShadowHitGroup", L"ShadowMiss_5" };
+		const WCHAR* rootSigExports[] = { L"RayGen_12", L"HitGroup",  L"ShadowHitGroup", L"ShadowMiss_5" };
 		// mstack ^^ I think the new shadow rays use the same Root Sig
 
 		// Add a state subobject for the association between the RayGen shader and the local root signature
@@ -1573,16 +1647,43 @@ namespace DXR
 
 		subobjects[index++] = rayGenShaderRootSigAssociationObject;
 
+		//////////// end of origin root signature association
+		// begining testing miss shader rs association
+
+		D3D12_STATE_SUBOBJECT missRootSigObject = {};
+		missRootSigObject.Type = D3D12_STATE_SUBOBJECT_TYPE_LOCAL_ROOT_SIGNATURE;
+		missRootSigObject.pDesc = &dxr.miss.pRootSignature;
+
+		subobjects[index++] = missRootSigObject;
+
+		// Adding a second root signature local for the miss shader as test
+		const WCHAR* rootSigExportsMissShader[] = { L"Miss_5" };
+
+		// Add a state subobject for the association between the miss shader and the local root signature
+		D3D12_SUBOBJECT_TO_EXPORTS_ASSOCIATION missShaderRootSigAssociationMiss = {};
+		missShaderRootSigAssociationMiss.NumExports = _countof(rootSigExportsMissShader);
+		missShaderRootSigAssociationMiss.pExports = rootSigExportsMissShader;
+		missShaderRootSigAssociationMiss.pSubobjectToAssociate = &subobjects[(index - 1)];
+
+		D3D12_STATE_SUBOBJECT missShaderRootSigAssociationObjectMiss = {};
+		missShaderRootSigAssociationObjectMiss.Type = D3D12_STATE_SUBOBJECT_TYPE_SUBOBJECT_TO_EXPORTS_ASSOCIATION;
+		missShaderRootSigAssociationObjectMiss.pDesc = &missShaderRootSigAssociationMiss;
+
+		subobjects[index++] = missShaderRootSigAssociationObjectMiss;
+		
+// end of miss shader root sig
+
 		D3D12_STATE_SUBOBJECT globalRootSig;
 		globalRootSig.Type = D3D12_STATE_SUBOBJECT_TYPE_GLOBAL_ROOT_SIGNATURE;
 		//globalRootSig.pDesc = &dxr.miss.pRootSignature;
-		globalRootSig.pDesc = &dxr.miss.pRootSignature; // should this technically be the rgs root sig?
+		globalRootSig.pDesc = &dxr.hit.chs.pRootSignature;
+		//globalRootSig.pDesc = &dxr.rgs.pRootSignature; // should this technically be the rgs root sig?
 
 		subobjects[index++] = globalRootSig;
 
 		// Add a state subobject for the ray tracing pipeline config
 		D3D12_RAYTRACING_PIPELINE_CONFIG pipelineConfig = {};
-		pipelineConfig.MaxTraceRecursionDepth = 3 ; // mstack: this stays at one , GI multiple bounces loop in ray gen
+		pipelineConfig.MaxTraceRecursionDepth = 3 ; // mstack: thjis does not need to be 1 , GI multiple bounces loop in ray gen
 
 		D3D12_STATE_SUBOBJECT pipelineConfigObject = {};
 		pipelineConfigObject.Type = D3D12_STATE_SUBOBJECT_TYPE_RAYTRACING_PIPELINE_CONFIG;
@@ -1601,7 +1702,7 @@ namespace DXR
 		HRESULT hr = d3d.device->CreateStateObject(&pipelineDesc, IID_PPV_ARGS(&dxr.rtpso));
 		Utils::Validate(hr, L"Error: failed to create state object!");
 #if NAME_D3D_RESOURCES
-		dxr.rtpso->SetName(L"DXR Pipeline State Object");
+ 		dxr.rtpso->SetName(L"DXR Pipeline State Object");
 #endif
 
 		// Get the RTPSO properties
@@ -1625,15 +1726,18 @@ namespace DXR
 		The ray generation program requires the largest entry:
 			32 bytes - D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES
 		  +  8 bytes - a CBV/SRV/UAV descriptor table pointer (64-bits)
-		  = 40 bytes ->> aligns to 64 bytes
+		  +  16 bytes - a root constant (LightPos)
+		  = 56 bytes ->> aligns to 64 bytes
 		The entry size must be aligned up to D3D12_RAYTRACING_SHADER_BINDING_TABLE_RECORD_BYTE_ALIGNMENT
 		*/
 
 		uint32_t shaderIdSize = D3D12_SHADER_IDENTIFIER_SIZE_IN_BYTES;
 		uint32_t shaderTableSize = 0;
+		uint32_t descriptor_table_size = 8;
 
 		dxr.shaderTableRecordSize = shaderIdSize;
 		dxr.shaderTableRecordSize += 8;							// CBV/SRV/UAV descriptor table pointewr(?)
+		dxr.shaderTableRecordSize += 16;							// root constants x 4
 		dxr.shaderTableRecordSize = ALIGN(D3D12_RAYTRACING_SHADER_RECORD_BYTE_ALIGNMENT, dxr.shaderTableRecordSize);
 
 		//shaderTableSize = (dxr.shaderTableRecordSize * 3);		// 3 shader records in the table
@@ -1655,16 +1759,50 @@ namespace DXR
 		// Shader Record 0 - Ray Generation program and local root parameter data (descriptor table with constant buffer and IB/VB pointers)
 		memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"RayGen_12"), shaderIdSize);
 
+
+		*reinterpret_cast<float*>(pData + shaderIdSize) = resources.light_pos.light.x;
+		*reinterpret_cast<float*>(pData + shaderIdSize+4) = resources.light_pos.light.y;
+		*reinterpret_cast<float*>(pData + shaderIdSize+8) = resources.light_pos.light.z;
+		*reinterpret_cast<float*>(pData + shaderIdSize+12) = 0.5f;
+		  
+
 		// Set the root parameter data. Point to start of descriptor heap.
-		*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+		*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize + 16) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
 		// Descriptor tables don’t need to be created or destroyed at the API or DDI – 
 		// they are merely identified to drivers as an offset and size out of a heap whenever referenced
 		// (the size is not strictly necessary but useful for validation at least).
 		// https://microsoft.github.io/DirectX-Specs/d3d/ResourceBinding.html#descriptor-tables
 
-		// Shader Record 1 - Miss program (no local root arguments to set)
+
+/*
+		*(pData + shaderIdSize + descriptor_table_size) = (UINT)9;
+		*(pData + shaderIdSize + descriptor_table_size + 4) = 2;
+		*(pData + shaderIdSize + descriptor_table_size + 8) = 3;
+		*(pData + shaderIdSize + descriptor_table_size + 12) = 1;
+		* */
+
+/*
+		*(pData + shaderIdSize + descriptor_table_size) = resources.light_pos.light.x;
+		*(pData + shaderIdSize + descriptor_table_size + 4) = resources.light_pos.light.y;
+		*(pData + shaderIdSize + descriptor_table_size + 8) = resources.light_pos.light.z;
+		*(pData + shaderIdSize + descriptor_table_size + 12) = resources.light_pos.light.w;
+		*/
+		//D3D12_GPU_DESCRIPTOR_HANDLE my_handle{};
+		//my_handle.ptr = resources.lightBufferCB->GetGPUVirtualAddress();
+
+		// Adding Root constant, LightPos struct
+		//*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize + descriptor_table_size) = resources.lightBufferCB->GetGPUVirtualAddress();
+		//*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize + descriptor_table_size) = my_handle;
+
+		// Shader Record 1 - Miss program (no local root arguments to set)->(actually now there is a root signature)
+		
 		pData += dxr.shaderTableRecordSize;
 		memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"Miss_5"), shaderIdSize);
+		//uint32_t offset = 32;
+		resources.missShaderOffset.ptr = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart().ptr + (uint32_t) 128; 
+
+		*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.missShaderOffset;
+		//*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart(); 
 
 		// Shader Record 2 - Shadow Miss program (no local root arguments to set)
 		pData += dxr.shaderTableRecordSize;
@@ -1674,8 +1812,16 @@ namespace DXR
 		pData += dxr.shaderTableRecordSize;
 		memcpy(pData, dxr.rtpsoInfo->GetShaderIdentifier(L"HitGroup"), shaderIdSize);
 
+		*reinterpret_cast<float*>(pData + shaderIdSize) = resources.light_pos.light.x;
+		*reinterpret_cast<float*>(pData + shaderIdSize+4) = resources.light_pos.light.y;
+		*reinterpret_cast<float*>(pData + shaderIdSize+8) = resources.light_pos.light.z;
+		*reinterpret_cast<float*>(pData + shaderIdSize+12) = 0.5f;
+
 		// Set the root parameter data. Point to start of descriptor heap.
-		*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+		*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize + 16) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+		// Set the root parameter data. Point to start of descriptor heap.
+		//*reinterpret_cast<D3D12_GPU_DESCRIPTOR_HANDLE*>(pData + shaderIdSize) = resources.descriptorHeap->GetGPUDescriptorHandleForHeapStart(); 
+
 
 		// Shader Record 4 - Shadow Any Hit program (no local root args) actually maybe because
 		// Anyhit includes the attributes param that it does need at least the vertex buffer from the descriptor
@@ -1702,6 +1848,8 @@ namespace DXR
 		// 1 CBV for the MaterialCB
 		// NEW ADD 1 CBV for the MyMaterialCB, will be in b(2)?
 		// NEW ADD 1 CBV for the miscBufferCB, will be in b(3)
+		
+		// NEW ADD 1 CBV for the missShaderBufferCB, will be in b(4)
 		// 1 UAV for the RT output
 		// NEW ADD 1 UAV for the RT Acculmation buffer, u(1) 
 		// 1 SRV for the Scene BVH
@@ -1712,7 +1860,8 @@ namespace DXR
 		//desc.NumDescriptors = 7;
 		//desc.NumDescriptors = 8;
 		//desc.NumDescriptors = 9; // new for miscBuffer
-		desc.NumDescriptors = 10; // new for DXRAccBuffer
+		//desc.NumDescriptors = 10; // new for DXRAccBuffer
+		desc.NumDescriptors = 11; // new for miss shader buffer
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -1756,6 +1905,15 @@ namespace DXR
 		cbvDesc.BufferLocation = resources.miscBufferCB->GetGPUVirtualAddress();
 
 		handle.ptr += handleIncrement;
+		d3d.device->CreateConstantBufferView(&cbvDesc, handle);
+
+		// NEW ADD for the missShaderBuffer
+
+		cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, sizeof(resources.missShaderBufferData));
+		cbvDesc.BufferLocation = resources.missShaderBufferCB->GetGPUVirtualAddress();
+
+		handle.ptr += handleIncrement; //128
+		//resources.missShaderOffset.ptr = cbvDesc.BufferLocation;
 		d3d.device->CreateConstantBufferView(&cbvDesc, handle);
 
 		// Create the DXR output buffer UAV
@@ -1818,15 +1976,6 @@ namespace DXR
 
 		handle.ptr += handleIncrement;
 		d3d.device->CreateShaderResourceView(resources.texture, &textureSRVDesc, handle);
-
-		// NEW ADD for the MyMaterialCB
-	/*
-		cbvDesc.SizeInBytes = ALIGN(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, resources.myMaterialCBDataSize);
-		cbvDesc.BufferLocation = resources.myMaterialCB->GetGPUVirtualAddress();
-
-		handle.ptr += handleIncrement;
-		d3d.device->CreateConstantBufferView(&cbvDesc, handle);
-	*/
 
 	}
 
@@ -1979,6 +2128,7 @@ void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resour
 	d3d.cmdList->ResourceBarrier(2, OutputBarriers);
 
 	// Set the UAV/SRV/CBV and sampler heaps
+	// Only one of each at a time!
 	ID3D12DescriptorHeap* ppHeaps[] = { resources.descriptorHeap };
 	d3d.cmdList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 

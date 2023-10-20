@@ -30,6 +30,8 @@
 
 #include "Utils.h"
 
+#include "MathExtras.h"
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -194,7 +196,7 @@ vector<char> ReadFile(const string &filename)
 //--------------------------------------------------------------------------------------
 
 //void LoadModel(string filepath, Model &model, Material &material)
-void LoadModel(string filepath, Model &model, Material &material, std::vector<MyMaterialCB>& materialVec) 
+void LoadModel(string filepath, Model &model, Material &material, std::vector<MyMaterialCB>& materialVec, D3D12Resources& resources) 
 {
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
@@ -236,6 +238,9 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 
 	// Parse the model and store the unique vertices
 	unordered_map<Vertex, uint32_t> uniqueVertices = {};
+
+	std::vector<Vertex> light_average_pos{};
+
 	for (const auto &shape : shapes) 
 	{
 		int material_index = 0;
@@ -272,7 +277,16 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 			if ((material_index % 3) == 0) { // new triangle, get material 0, 1, 2, ..
 				get_material = shape.mesh.material_ids[material_offset];
 			}
+			/*
+			if (get_material == 8) {
+				vertex.position.x /= 4;
+				vertex.position.y /= 4;
+				vertex.position.y += 1;
+				vertex.position.z /= 4;
 
+				light_average_pos.push_back(vertex);
+			}
+			*/
 			vertex.materialId = { get_material, 0 };
 
 			material_index++;
@@ -284,9 +298,20 @@ void LoadModel(string filepath, Model &model, Material &material, std::vector<My
 				model.vertices.push_back(vertex);
 			}
 
-			model.indices.push_back(uniqueVertices[vertex]);
+				model.indices.push_back(uniqueVertices[vertex]);
+			
 		}
 	}
+/*
+	Vertex light_center{};
+	for (Vertex v : light_average_pos) {
+		light_center.position += v.position;
+	}
+	light_center.position /= light_average_pos.size();
+*/
+	resources.light_pos.light.x = 0.0930555537f;
+	resources.light_pos.light.y = 1.37499993f;
+	resources.light_pos.light.z = 0.0818055421f;
 
 }
 

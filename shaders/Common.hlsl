@@ -67,6 +67,20 @@ cbuffer miscBuffer : register(b3)
 	float3 rgB;// = { 0, 0, 1 };
 //	float1 one;
 	float2 rGe;// = { 0, 1 };
+}
+
+struct Light {
+	//float4 light_pos;
+	float x;
+	float y;
+	float z;
+	float w; // unused
+};
+
+ConstantBuffer<Light> my_lights : register(b25);
+
+cbuffer missBuffer : register(b9) {// this is only accessable from Miss shader due to local root sig
+    float4 data;
 };
 
 //ByteAddressBuffer materials : register(b2);
@@ -172,9 +186,20 @@ int GetMaterialId(uint triangleIndex)
 float4 GetMaterialDiffuse(int matID) 
 {
 	float4 RGB = materials[matID]; // working one, commented out for miscBuffer testing
+	//float4 RGB = float4(rgB, 0); // testing // this creates all purple, R and B!
 //	float4 RGB = float4(rGe, 0, 0); // testing
-	//float4 RGB = float4(rgB, 0); // testing
+	
+/*	
+	The structure spacing is:
+	DirectX::XMFLOAT4 frame_counter = { 0., 0., 0., 0.};
+	DirectX::XMFLOAT2 has_moved = { 0, 0};
+	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
+	DirectX::XMFLOAT2 rGe = { 0, 1 };
 
+	so if you get rgB from the cbuffer, the first two 4 bytes of rgB filled the end of 
+	has_moved before the 16 byte boundary, then you get 1,0,1,0 for the rest of the bytes
+	so you have purple. Beware the 16 byte constant buffer boundary
+*/
 	return RGB;
 
 }
@@ -200,10 +225,6 @@ float3 CalculateSurfaceNormal(TriangleVertex tri) {
 struct ShadowInfo {
 	float4 isVis; // 1 for visible, 0 for in shadow
 	// this is currently float4 when it does not have to be, because testing
-};
-
-struct Light {
-	float4 posAndIntensity; // first 3 for x,y,z fourth for intensity
 };
 
 
@@ -267,6 +288,7 @@ float3 getCosHemisphereSample(inout uint randSeed, float3 hitNorm)
 	float2 randVal = float2(nextRand(randSeed), nextRand(randSeed));
 
 	// new coord system is normal, bitangent and tangent as axes
+	// tangent space
 
 	// Cosine weighted hemisphere sample from RNG
 	float3 bitangent = getPerpendicularVector(hitNorm);
@@ -287,15 +309,18 @@ float traceShadow() {
 	// Setup Shadow Ray
 	RayDesc shadowRay;
 	shadowRay.Origin = worldHitPosition();
-	//shadowRay.Origin = float3(0.f, 0.f, 0.f);
-	//float4 mainLight = float4(10.f, 10.f, 10.f, 1.f);
-	//float4 mainLight = float4(2.f, 5.f, 0.f, 1.f); // this is good front on light from angle
 	float4 mainLight = float4(5.f, -20.f, 0.f, 1.f); 
-	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
-	//shadowRay.Direction = float3(5.f, -5.f, 5.f);
+	// switching from mainLight, to a 3d point in light_pos (center of the square)
+
+//	shadowRay.Direction = normalize(mainLight.xyz - shadowRay.Origin);
+	float3 light_origin = float3(my_lights.x, my_lights.y, my_lights.z);
+	shadowRay.Direction = normalize(light_origin - shadowRay.Origin);
 
 	shadowRay.TMin = 0.00001f;
-	shadowRay.TMax = 100.f;	
+	//shadowRay.TMax = 10.f;	
+	float max = distance(light_origin, shadowRay.Origin);	
+	shadowRay.TMax = max + 0.005f;	
+
 	
 	// Trace the ray
 	ShadowInfo shadowPayload;

@@ -58,7 +58,7 @@ public:
 
 		// Load a model
 		//Utils::LoadModel(config.model, model, material); // config.model is a string, model is a Model
-		Utils::LoadModel(config.model, model, material, myMaterialVector); // config.model is a string, model is a Model
+		Utils::LoadModel(config.model, model, material, myMaterialVector, resources); // config.model is a string, model is a Model
 	//	Utils::CustomModel(model); // config.model is a string, model is a Model
 
 		// Initialize the shader compiler
@@ -86,6 +86,8 @@ public:
 		D3DResources::Create_Material_CB(d3d, resources, material);
 		D3DResources::Create_My_Material_CB(d3d, resources, myMaterialVector, myMaterialVector.size());
 		D3DResources::Create_MiscBuffer_CB(d3d, resources);
+		D3DResources::Create_MissShaderBuffer_CB(d3d, resources);
+		D3DResources::Create_Light_CB(d3d, resources);
 		
 		// Create DXR specific resources
 		DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);

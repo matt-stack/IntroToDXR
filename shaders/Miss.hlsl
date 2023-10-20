@@ -32,7 +32,13 @@
 [shader("miss")]
 void Miss(inout HitInfo payload)
 {
+
+    //float4 mat = GetMaterialDiffuse(1);
+
+    
+	//float3 finalColor =  float3( mat.x * 1.f, mat.y * 1.f, mat.z * 1.f );
     //payload.ShadedColorAndHitT = float4(0.2f, 0.2f, 0.2f, -1.f);
-    payload.ShadedColorAndHitT = float4(0.8f, 0.8f, 0.2f, -1.f);
+    //payload.ShadedColorAndHitT = float4(0.8f, 0.8f, 0.2f, -1.f);
+    payload.ShadedColorAndHitT = float4(data.xyz, 0.f);
 
 }

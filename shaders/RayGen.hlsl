@@ -77,6 +77,10 @@ void RayGen()
 
 	
 //	RTOutput[LaunchIndex.xy] = float4(payload.ShadedColorAndHitT.rgb, 1.f);
+//	float help = my_lights.tr;
+//	if (my_lights.y == -21.f) {
+//		output_color.xyz = 0.1f;
+//	}
 	RTOutput[LaunchIndex.xy] = float4(output_color, 1.f);
 //	RTOutput[LaunchIndex.xy] = float4(finalColor.rgb, 1.f);
 	// save the current frame to back buffer (Acc Buffer)

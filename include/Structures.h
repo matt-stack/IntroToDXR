@@ -173,6 +173,7 @@ struct MyMaterialCB
 	DirectX::XMFLOAT4 diffuse = {0, 0, 0, 0}; //RGB + pad
 };
 
+
 struct miscBuffer
 {
 	DirectX::XMFLOAT4 frame_counter = { 0., 0., 0., 0.};
@@ -180,6 +181,16 @@ struct miscBuffer
 	DirectX::XMFLOAT3 rgB = { 0, 0, 1};
 	DirectX::XMFLOAT2 rGe = { 0, 1 };
 // random unpacked stuct to test non-array cbuffers
+};
+
+struct missShaderBuffer
+{
+	DirectX::XMFLOAT4 pack = {0.1, 0.5, 0.5, 0.,};
+};
+
+struct LightPos
+{
+	DirectX::XMFLOAT4 light = { 0., 0., 0., 0. };
 };
 
 //--------------------------------------------------------------------------------------
@@ -261,38 +272,44 @@ struct D3D12ShaderInfo
 	}
 };
 
-struct D3D12Resources 
+struct D3D12Resources
 {
-	ID3D12Resource*									DXROutput;
-	ID3D12Resource*									DXRAccBuffer;
+	ID3D12Resource* DXROutput;
+	ID3D12Resource* DXRAccBuffer;
 
-	ID3D12Resource*									vertexBuffer = nullptr;
+	ID3D12Resource* vertexBuffer = nullptr;
 	D3D12_VERTEX_BUFFER_VIEW						vertexBufferView;
-	ID3D12Resource*									indexBuffer = nullptr;
+	ID3D12Resource* indexBuffer = nullptr;
 	D3D12_INDEX_BUFFER_VIEW							indexBufferView;
 
-	ID3D12Resource*									viewCB = nullptr;
+	ID3D12Resource* viewCB = nullptr;
 	ViewCB											viewCBData;
-	UINT8*											viewCBStart = nullptr;
+	UINT8* viewCBStart = nullptr;
 
-	ID3D12Resource*									materialCB = nullptr;
-	MaterialCB										materialCBData;	
-	UINT8*											materialCBStart = nullptr;
+	ID3D12Resource* materialCB = nullptr;
+	MaterialCB										materialCBData;
+	UINT8* materialCBStart = nullptr;
 
-	ID3D12Resource*	myMaterialCB = nullptr;
+	ID3D12Resource* myMaterialCB = nullptr;
 	//MyMaterialCB myMaterialCBData; // original, wasnt making sense for the vec approach
 	size_t myMaterialCBDataSize; // stores the size of the std::Vector of MyMaterialCB's
 	UINT* myMaterialCBStart = nullptr;
 
-	ID3D12Resource*	miscBufferCB = nullptr;
+	ID3D12Resource* miscBufferCB = nullptr;
 	miscBuffer miscBufferData{}; // default init
 	UINT* miscBufferCBStart = nullptr; // mapped gpu address
 
-	ID3D12DescriptorHeap*							rtvHeap = nullptr;
-	ID3D12DescriptorHeap*							descriptorHeap = nullptr;
 
-	ID3D12Resource*									texture = nullptr;
-	ID3D12Resource*									textureUploadResource = nullptr;
+	ID3D12Resource* missShaderBufferCB = nullptr;
+	missShaderBuffer missShaderBufferData{}; // default init
+	UINT* missShaderBufferCBStart = nullptr; // mapped gpu address, CPU address to write to GPU memory with write-combining
+	D3D12_GPU_DESCRIPTOR_HANDLE missShaderOffset;
+
+	ID3D12DescriptorHeap* rtvHeap = nullptr;
+	ID3D12DescriptorHeap* descriptorHeap = nullptr;
+
+	ID3D12Resource* texture = nullptr;
+	ID3D12Resource* textureUploadResource = nullptr;
 
 	UINT											rtvDescSize = 0;
 
@@ -300,6 +317,10 @@ struct D3D12Resources
 	float											rotationOffset = 0;
 	DirectX::XMFLOAT3								eyeAngle;
 	DirectX::XMFLOAT3								eyePosition;
+
+	ID3D12Resource* lightBufferCB {nullptr};
+	LightPos										light_pos{};
+	UINT* lightBufferCBStart{ nullptr }; // mapped gpu address
 };
 
 struct D3D12Global

@@ -68,7 +68,15 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
 	// visualize RayTCurrent, good for debugging
 //	finalColor = float3((RayTCurrent() / 10.f), 0.f, 0.f);
 
+	//float3 temp_color = my_lights.light_pos.xyz;
+
+	//temp_color.x *= 10.0;
+//	if (my_lights.y == -20.f) {
+//		finalColor.xyz = 0.1f;
+//	}
+
 	payload.ShadedColorAndHitT = float4(finalColor.xyz, RayTCurrent());
+	//payload.ShadedColorAndHitT = float4(temp_color.xyz, RayTCurrent());
 //	payload.ShadedColorAndHitT = float4(AO_val.xyz, RayTCurrent());
 //	payload.ShadedColorAndHitT = float4(normals.xyz, RayTCurrent());
 }

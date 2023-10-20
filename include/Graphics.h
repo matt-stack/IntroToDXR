@@ -57,6 +57,8 @@ namespace D3DResources
 	void Create_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const Material &material);
 	void Create_My_Material_CB(D3D12Global &d3d, D3D12Resources &resources, const std::vector<MyMaterialCB> &material_vec, int size);
 	void Create_MiscBuffer_CB(D3D12Global& d3d, D3D12Resources& resources);
+	void Create_Light_CB(D3D12Global& d3d, D3D12Resources& resources);
+	void Create_MissShaderBuffer_CB(D3D12Global& d3d, D3D12Resources& resources);
 	void Create_Descriptor_Heaps(D3D12Global &d3d, D3D12Resources &resources);
 
 	void Update_View_CB(D3D12Global &d3d, D3D12Resources &resources, float movement, float mousex, float mousey, float mousez);
