@@ -1,5 +1,80 @@
 # NRD- Sigma shadow denoising
 
+Workflow of the NRD Sample
+
+[NRDSample.cpp](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Source/NRDSample.cpp#L4331)
+```
+NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_SHADOWDATA, {&GetState(Texture::Unfiltered_ShadowData), GetFormat(Texture::Unfiltered_ShadowData)});
+NrdIntegration_SetResource(userPool, nrd::ResourceType::IN_SHADOW_TRANSLUCENCY, {&GetState(Texture::Unfiltered_Shadow_Translucency), GetFormat(Texture::Unfiltered_Shadow_Translucency)});
+NrdIntegration_SetResource(userPool, nrd::ResourceType::OUT_SHADOW_TRANSLUCENCY, {&GetState(Texture::Shadow), GetFormat(Texture::Shadow)});
+```
+[NRDSample.cpp](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Source/NRDSample.cpp#L4552)
+```
+{Texture::Unfiltered_ShadowData, nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL},
+{Texture::Unfiltered_Shadow_Translucency, nri::AccessBits::SHADER_RESOURCE_STORAGE, nri::TextureLayout::GENERAL},
+...
+nri::TransitionBarrierDesc transitionBarriers = {nullptr, optimizedTransitions.data(), 0, BuildOptimizedTransitions(transitions, helper::GetCountOf(transitions), optimizedTransitions)};
+NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+...
+NRI.CmdSetPipeline(commandBuffer, *Get(Pipeline::TraceOpaque));
+...
+NRI.CmdDispatch(commandBuffer, rectGridWmod, rectGridHmod, 1);
+```
+Transition two shadow textures to a writable state, then launch TraceOpaque which will edit them
+
+[TraceOpaque.cs.hlsl](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Shaders/TraceOpaque.cs.hlsl#L882)
+```
+// outputs
+NRI_RESOURCE( RWTexture2D<float2>, gOut_ShadowData, u, 7, 1 );
+NRI_RESOURCE( RWTexture2D<float4>, gOut_Shadow_Translucency, u, 8, 1 );
+
+...
+
+float2 shadowData0 = SIGMA_FrontEnd_PackShadow( viewZ, shadowHitDist == INF ? NRD_FP16_MAX : shadowHitDist, gTanSunAngularRadius, shadowTranslucency, shadowData1 );
+
+gOut_ShadowData[ pixelPos ] = shadowData0;
+gOut_Shadow_Translucency[ pixelPos ] = shadowData1;
+```
+`SIGMA_FrontEnv_PackShadow` call
+
+[NRDSample.cpp](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Source/NRDSample.cpp#L4571)
+```
+{ // Shadow denoising
+helper::Annotation annotation(NRI, commandBuffer, "Shadow denoising");
+
+ nrd::SigmaSettings shadowSettings = {};
+ nrd::Identifier denoiser = NRD_ID(SIGMA_SHADOW_TRANSLUCENCY);
+
+ m_NRD.SetDenoiserSettings(denoiser, &shadowSettings);
+ m_NRD.Denoise(&denoiser, 1, commandBuffer, userPool, NRD_ALLOW_DESCRIPTOR_CACHING);
+
+ //RestoreBindings(commandBuffer, frame); // Bindings will be restored in the next section
+}
+```
+[NRDSample.cpp](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Source/NRDSample.cpp#L4744)
+```
+{Texture::Shadow, nri::AccessBits::SHADER_RESOURCE, nri::TextureLayout::SHADER_RESOURCE},
+...
+nri::TransitionBarrierDesc transitionBarriers = {nullptr, optimizedTransitions.data(), 0, BuildOptimizedTransitions(transitions, helper::GetCountOf(transitions), optimizedTransitions)};
+NRI.CmdPipelineBarrier(commandBuffer, &transitionBarriers, nullptr, nri::BarrierDependency::ALL_STAGES);
+
+NRI.CmdSetPipeline(commandBuffer, *Get(Pipeline::Composition));
+NRI.CmdSetDescriptorSet(commandBuffer, 1, *Get(DescriptorSet::Composition1), &kDummyDynamicConstantOffset);
+
+NRI.CmdDispatch(commandBuffer, rectGridW, rectGridH, 1);
+```
+Transition new denoised shadow texture to texture layout from writeable form, then launch Composition (compute) shader
+
+[Composition.cs.hlsl](https://github.com/matt-stack/NRDSample/blob/ec5bb2605650f6c54d0b9cd4e39ad1feac1ef507/Shaders/Composition.cs.hlsl#L67)
+```
+float4 shadowData = gIn_Shadow[ pixelPos ];
+shadowData = SIGMA_BackEnd_UnpackShadow( shadowData );
+float3 shadow = lerp( shadowData.yzw, 1.0, shadowData.x );
+```
+`SIGMA_BackEnd_UnpackShadow()` call here, use the denoised shadow texture in normal deferred fashion from here out!
+
+Done :)
+
 # Introduction To DirectX Raytracing
 
 A barebones application to get you jump started with DirectX Raytracing (DXR)! Unlike other tutorials, this sample code _does not create or use any abstractions_ on top of the DXR Host API, and focuses on highlighting exactly what is new and different with DXR using the raw API calls. 
