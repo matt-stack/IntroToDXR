@@ -1,3 +1,5 @@
+# NRD- Sigma shadow denoising
+
 # Introduction To DirectX Raytracing
 
 A barebones application to get you jump started with DirectX Raytracing (DXR)! Unlike other tutorials, this sample code _does not create or use any abstractions_ on top of the DXR Host API, and focuses on highlighting exactly what is new and different with DXR using the raw API calls. 
