@@ -256,7 +256,7 @@ struct D3D12ShaderInfo
 
 
 	// mstack adding constructor to pass debug
-	D3D12ShaderInfo(LPCWSTR inFilename, LPCWSTR inEntryPoint, LPCWSTR inProfile, bool debug)
+	D3D12ShaderInfo(LPCWSTR inFilename, LPCWSTR inEntryPoint, LPCWSTR inProfile, LPCWSTR shaderType, bool debug)
 	{
 		filename = inFilename;
 		entryPoint = inEntryPoint;
@@ -265,7 +265,8 @@ struct D3D12ShaderInfo
 		arguments.push_back(L"-Zi");
 		arguments.push_back(L"-Od");
 		arguments.push_back(L"-T");
-		arguments.push_back(L"ps_6_6");
+		//arguments.push_back(L"ps_6_6");
+		arguments.push_back(shaderType);
 		arguments.push_back(L"-Fo");
 		arguments.push_back(L"C:\\Users\\matts\\source\\repos\\IntroToDXR_my_fork\\test\\test.bin");
 		argCount = static_cast<UINT32>(arguments.size()); // not sure if this is needed
@@ -310,6 +311,16 @@ struct D3D12Resources
 
 	ID3D12Resource* texture = nullptr;
 	ID3D12Resource* textureUploadResource = nullptr;
+
+	// G-Buffer
+	ID3D12Resource* gBuffer;
+	//ID3D12Resource* gBufferUploadResource = nullptr; // dont need a upload heap for gBuffer
+	// gBuffer is UAV, RWTexture2d for RT shaders, then SRV, Texture2d for composition cs shader
+
+	// Shadow tex
+	ID3D12Resource* shadowTex = nullptr;
+	// shadowTex is UAV, RWTexture2d for RT, then <something> for NRD denoise step, then SRV, sampler, Texture2d for CS
+
 
 	UINT											rtvDescSize = 0;
 
@@ -373,6 +384,46 @@ struct AccelerationStructureBuffer
 	ID3D12Resource* pScratch = nullptr;
 	ID3D12Resource* pResult = nullptr;
 	ID3D12Resource* pInstanceDesc = nullptr;	// only used in top-level AS
+};
+
+struct CSProgram
+{
+	D3D12ShaderInfo			info = {};
+	IDxcBlob*				blob = nullptr;
+	ID3D12RootSignature*	pRootSignature = nullptr;
+
+	D3D12_DXIL_LIBRARY_DESC	dxilLibDesc;
+	D3D12_EXPORT_DESC		exportDesc;
+	D3D12_STATE_SUBOBJECT	subobject; // dont need this
+	std::wstring			exportName;
+
+	CSProgram()
+	{
+		exportDesc.ExportToRename = nullptr;
+	}
+
+	CSProgram(D3D12ShaderInfo shaderInfo)
+	{
+		info = shaderInfo;
+		//info = std::move(shaderInfo);
+		subobject.Type = D3D12_STATE_SUBOBJECT_TYPE_DXIL_LIBRARY;
+		exportName = shaderInfo.entryPoint;
+		exportDesc.ExportToRename = nullptr;
+		exportDesc.Flags = D3D12_EXPORT_FLAG_NONE;
+	}
+
+	void SetBytecode()
+	{
+		exportDesc.Name = exportName.c_str();
+
+		dxilLibDesc.NumExports = 1;
+		dxilLibDesc.pExports = &exportDesc;
+		dxilLibDesc.DXILLibrary.BytecodeLength = blob->GetBufferSize();
+		dxilLibDesc.DXILLibrary.pShaderBytecode = blob->GetBufferPointer();
+
+		subobject.pDesc = &dxilLibDesc;
+	}
+
 };
 
 struct RtProgram
@@ -459,6 +510,11 @@ struct DXRGlobal
 	RtProgram										shadowmiss;
 	HitProgram										shadowhit;
 
+	CSProgram										composition;
+
 	ID3D12StateObject*								rtpso = nullptr;
 	ID3D12StateObjectProperties*					rtpsoInfo = nullptr;
+
+
+	ID3D12StateObject*								cspso = nullptr;
 };

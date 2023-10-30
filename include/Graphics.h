@@ -28,6 +28,7 @@
 #pragma once
 
 #include "Structures.h"
+#include "D3dx12.h"
 
 static const D3D12_HEAP_PROPERTIES UploadHeapProperties =
 {
@@ -73,6 +74,7 @@ namespace D3DShaders
 {
 	void Init_Shader_Compiler(D3D12ShaderCompilerInfo &shaderCompiler);
 	void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, RtProgram &program);
+	void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, CSProgram &program);
 	void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, D3D12ShaderInfo &info, IDxcBlob** blob);
 	void Destroy(D3D12ShaderCompilerInfo &shaderCompiler);
 }
@@ -112,8 +114,9 @@ namespace DXR
 	void Create_Pipeline_State_Object(D3D12Global &d3d, DXRGlobal &dxr);
 	void Create_Shader_Table(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);
 	void Create_Descriptor_Heaps(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources, const Model &model);
-	void Create_DXR_Output(D3D12Global &d3d, D3D12Resources &resources);
+	void Create_DXR_Output_And_GBuffer(D3D12Global &d3d, D3D12Resources &resources);
 	void Create_DXR_Acc_Buffer(D3D12Global &d3d, D3D12Resources &resources);
+	void Create_Compute_Shader(D3D12Global &d3d, DXRGlobal &dxr, D3D12ShaderCompilerInfo& shaderCompiler);
 
 	void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resources);
 	void Set_Aftermath_Event_Marker(D3D12Global& d3d, const std::string& markerData, bool appManagedMarker);

@@ -92,7 +92,7 @@ public:
 		// Create DXR specific resources
 		DXR::Create_Bottom_Level_AS(d3d, dxr, resources, model);
 		DXR::Create_Top_Level_AS(d3d, dxr, resources);
-		DXR::Create_DXR_Output(d3d, resources);
+		DXR::Create_DXR_Output_And_GBuffer(d3d, resources);
 		DXR::Create_DXR_Acc_Buffer(d3d, resources);
 		DXR::Create_Descriptor_Heaps(d3d, dxr, resources, model);	
 		DXR::Create_RayGen_Program(d3d, dxr, shaderCompiler);
@@ -100,6 +100,7 @@ public:
 		DXR::Create_Closest_Hit_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Shadow_Miss_Program(d3d, dxr, shaderCompiler);
 		DXR::Create_Shadow_Any_Hit_Program(d3d, dxr, shaderCompiler);
+		DXR::Create_Compute_Shader(d3d, dxr, shaderCompiler);
 		DXR::Create_Pipeline_State_Object(d3d, dxr);
 		DXR::Create_Shader_Table(d3d, dxr, resources);
 

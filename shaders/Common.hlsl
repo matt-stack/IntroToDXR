@@ -89,6 +89,8 @@ cbuffer missBuffer : register(b9) {// this is only accessable from Miss shader d
 
 RWTexture2D<float4> RTOutput				: register(u0);
 RWTexture2D<float4> RTAccBuffer				: register(u1);
+RWTexture2D<float4> gBuffer					: register(u2);
+
 RaytracingAccelerationStructure SceneBVH	: register(t0);
 
 ByteAddressBuffer indices					: register(t1);

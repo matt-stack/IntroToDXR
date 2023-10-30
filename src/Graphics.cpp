@@ -180,7 +180,7 @@ namespace D3DResources
 		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-		d3d.cmdList->ResourceBarrier(1, &barrier);
+		d3d.cmdList->ResourceBarrier(1, &barrier); // wait to use this resource until complete copy
 	}
 
 	/*
@@ -548,6 +548,8 @@ void Destroy(D3D12Resources &resources)
 	if (resources.myMaterialCBStart) resources.myMaterialCBStart = nullptr;
 
 	SAFE_RELEASE(resources.DXROutput);
+	SAFE_RELEASE(resources.gBuffer);
+	SAFE_RELEASE(resources.shadowTex);
 	SAFE_RELEASE(resources.vertexBuffer);
 	SAFE_RELEASE(resources.indexBuffer);
 	SAFE_RELEASE(resources.viewCB);
@@ -632,6 +634,14 @@ void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, D3D12ShaderInfo &info
 * Compile an HLSL ray tracing shader using dxcompiler.
 */
 void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, RtProgram &program) 
+{
+	Compile_Shader(compilerInfo, program.info, &program.blob);	
+	program.SetBytecode();
+}
+
+// would prefer to use templates rather than dublicate for diff arg, but dont want to make a 
+// implementation file just for one thing
+void Compile_Shader(D3D12ShaderCompilerInfo &compilerInfo, CSProgram &program) 
 {
 	Compile_Shader(compilerInfo, program.info, &program.blob);	
 	program.SetBytecode();
@@ -725,7 +735,7 @@ void Create_Device(D3D12Global &d3d)
 		ID3D12Debug* debugController;
 		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
 		{
-		//	debugController->EnableDebugLayer();
+			debugController->EnableDebugLayer();
 		}
 	}
 /*
@@ -1256,7 +1266,7 @@ namespace DXR
 	{
 		// Load and compile the ray generation shader
 		// mstack this is where you would pass flags like debug to the dxcompiler
-		dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3", true)); // original
+		dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3", L"ps_6_6", true)); // original
 		//dxr.rgs = RtProgram(D3D12ShaderInfo(L"shaders\\RayGen.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 		// https://asawicki.info/news_1719_two_shader_compilers_of_direct3d_12
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.rgs);
@@ -1276,7 +1286,8 @@ namespace DXR
 
 		ranges[1].BaseShaderRegister = 0;
 		//ranges[1].NumDescriptors = 1;
-		ranges[1].NumDescriptors = 2; // new
+		//ranges[1].NumDescriptors = 2; // new
+		ranges[1].NumDescriptors = 3; // new
 		ranges[1].RegisterSpace = 0;
 		ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
 		//ranges[1].OffsetInDescriptorsFromTableStart = 2;
@@ -1292,7 +1303,8 @@ namespace DXR
 		//ranges[2].OffsetInDescriptorsFromTableStart = 4;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 5;
 		//ranges[2].OffsetInDescriptorsFromTableStart = 6; // new because extra UAV Acc Buffer
-		ranges[2].OffsetInDescriptorsFromTableStart = 7; // new because extra missshader
+		//ranges[2].OffsetInDescriptorsFromTableStart = 7; // new because extra missshader
+		ranges[2].OffsetInDescriptorsFromTableStart = 8; // new because extra missshader
 
 		D3D12_ROOT_PARAMETER param0 = {};
 		param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -1328,7 +1340,7 @@ namespace DXR
 	void Create_Miss_Program(D3D12Global& d3d, DXRGlobal& dxr, D3D12ShaderCompilerInfo& shaderCompiler)
 	{
 		// Load and compile the miss shader
-		dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", true)); // original
+		dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", L"ps_6_6", true)); // original
 		//dxr.miss = RtProgram(D3D12ShaderInfo(L"shaders\\Miss.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.miss);
 
@@ -1372,7 +1384,7 @@ namespace DXR
 	{
 		// Load and compile the Closest Hit shader
 		dxr.hit = HitProgram(L"Hit");
-		dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3", true)); // original
+		dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3", L"ps_6_6", true)); // original
 		//dxr.hit.chs = RtProgram(D3D12ShaderInfo(L"shaders\\ClosestHit.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.hit.chs);
 	}
@@ -1385,7 +1397,7 @@ namespace DXR
 	{
 		// Load and compile the miss shader
 		//dxr.shadowmiss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
-		dxr.shadowmiss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"ShadowMiss", L"lib_6_3", true)); // with debug
+		dxr.shadowmiss = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"ShadowMiss", L"lib_6_3", L"ps_6_6", true)); // with debug
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.shadowmiss);
 	}
 
@@ -1397,8 +1409,89 @@ namespace DXR
 		// Load and compile the Closest Hit shader
 		dxr.shadowhit = HitProgram(L"ShadowHit");
 		//dxr.shadowhit.ahs = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"", L"lib_6_3", L"-Zi")); // with debug
-		dxr.shadowhit.ahs = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"ShadowHit", L"lib_6_3", true)); // 
+		dxr.shadowhit.ahs = RtProgram(D3D12ShaderInfo(L"shaders\\ShadowRay.hlsl", L"ShadowHit", L"lib_6_3", L"ps_6_6", true)); // 
 		D3DShaders::Compile_Shader(shaderCompiler, dxr.shadowhit.ahs);
+	}
+
+	/*
+	* Create the compute shader, set the num threads
+	* also create the PSO and Root sig
+	*/
+
+	void Create_Compute_Shader(D3D12Global& d3d, DXRGlobal& dxr, D3D12ShaderCompilerInfo& shaderCompiler)
+	{
+
+		dxr.composition = CSProgram(D3D12ShaderInfo(L"shaders\\composition.hlsl", L"Composition", L"lib_6_3", L"cs_6_3", true)); 
+		D3DShaders::Compile_Shader(shaderCompiler, dxr.composition);
+		
+		D3D12_DESCRIPTOR_RANGE ranges[2];
+
+		ranges[0].BaseShaderRegister = 0;
+		//ranges[0].NumDescriptors = 3;
+		ranges[0].NumDescriptors = 2; // now its 4 because I added miscBuffer
+		ranges[0].RegisterSpace = 0;
+		ranges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+		ranges[0].OffsetInDescriptorsFromTableStart = 0;
+
+		ranges[1].BaseShaderRegister = 0;
+		//ranges[0].NumDescriptors = 3;
+		ranges[1].NumDescriptors = 1; // now its 4 because I added miscBuffer
+		ranges[1].RegisterSpace = 0;
+		ranges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+		ranges[1].OffsetInDescriptorsFromTableStart = 2;
+		// ^ this translates as three CBVs, then you need to make sure the following are offset correctly
+
+		D3D12_ROOT_PARAMETER param0 = {};
+		param0.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+		param0.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+		param0.DescriptorTable.NumDescriptorRanges = _countof(ranges);
+		param0.DescriptorTable.pDescriptorRanges = ranges;
+
+		D3D12_ROOT_PARAMETER rootParams[1] = { param0 };
+
+		D3D12_ROOT_SIGNATURE_DESC rootDesc = {};
+		rootDesc.NumParameters = _countof(rootParams);
+		rootDesc.pParameters = rootParams;
+		rootDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE;
+
+		// Create the root signature
+		dxr.composition.pRootSignature = D3D12::Create_Root_Signature(d3d, rootDesc);
+#if NAME_D3D_RESOURCES
+		dxr.composition.pRootSignature->SetName(L"DXR Composition CS Root Signature");
+#endif
+
+		// PSO, using helper library
+		struct PipelineStateStream {
+			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRSig;
+			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+		};
+
+		PipelineStateStream stream;
+		stream.pRSig = dxr.composition.pRootSignature;
+		//stream.CS = CD3DX12_SHADER_BYTECODE((ID3DBlob*) dxr.composition.blob);
+		stream.CS = CD3DX12_SHADER_BYTECODE(dxr.composition.blob->GetBufferPointer(), dxr.composition.blob->GetBufferSize());
+		//stream.CS = dxr.composition.blob;
+
+		D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateDesc{
+			sizeof(PipelineStateStream), &stream
+		};
+		
+		HRESULT hr = d3d.device->CreatePipelineState(&pipelineStateDesc, IID_PPV_ARGS(&dxr.cspso));
+	//	Utils::Validate(hr, L"Error: failed to create CS state object!");
+
+		// compile the compute_shader blob 
+		// create textures
+		// first in a read/write state
+		// then transition to a read state SRV for later use
+		// create upload buffer
+		// create SRVs, UAVs
+		// create decriptor heap
+		// create root signature
+		// pass in descriptor table to root sig
+		// create PSO
+		
+		// Attach to commandlist with setPso
+	
 	}
 
 	/**
@@ -1852,6 +1945,7 @@ namespace DXR
 		// NEW ADD 1 CBV for the missShaderBufferCB, will be in b(4)
 		// 1 UAV for the RT output
 		// NEW ADD 1 UAV for the RT Acculmation buffer, u(1) 
+		// NEW ADD 1 UAV for the gbuffer, u(2) 
 		// 1 SRV for the Scene BVH
 		// 1 SRV for the index buffer
 		// 1 SRV for the vertex buffer
@@ -1861,7 +1955,8 @@ namespace DXR
 		//desc.NumDescriptors = 8;
 		//desc.NumDescriptors = 9; // new for miscBuffer
 		//desc.NumDescriptors = 10; // new for DXRAccBuffer
-		desc.NumDescriptors = 11; // new for miss shader buffer
+		//desc.NumDescriptors = 11; // new for miss shader buffer
+		desc.NumDescriptors = 12; // new for g buffer
 		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -1930,6 +2025,14 @@ namespace DXR
 		handle.ptr += handleIncrement;
 		d3d.device->CreateUnorderedAccessView(resources.DXRAccBuffer, nullptr, &uavAccDesc, handle);
 
+		// Create the G buffer UAV
+		// other codes do local scopes to reuse name like uavDesc
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavGBDesc = {};
+		uavGBDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+
+		handle.ptr += handleIncrement;
+		d3d.device->CreateUnorderedAccessView(resources.gBuffer, nullptr, &uavGBDesc, handle);
+		
 		// Create the DXR Top Level Acceleration Structure SRV
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
@@ -1981,11 +2084,15 @@ namespace DXR
 
 
 	/**
-	* Create the DXR output buffer.
+	* Create the DXR output buffer and gBuffer.
 	* mstack: Unlike raster, RT program doesnt write directly to render target, instead
 	* uses a UAV buffer holding the RT output
+	* gBuffer is used as an intermediate RTOut for now
+	* Usually a gbuffer has pos, normals, material id, etc
+	* but we will store just color minus shadows right now
+	* Then denoise the shadows, then composition CS will add them together in RTOutput
 	*/
-	void Create_DXR_Output(D3D12Global& d3d, D3D12Resources& resources)
+	void Create_DXR_Output_And_GBuffer(D3D12Global& d3d, D3D12Resources& resources)
 	{
 		// Describe the DXR output resource (texture)
 		// Dimensions and format should match the swapchain
@@ -1994,7 +2101,7 @@ namespace DXR
 		desc.DepthOrArraySize = 1;
 		desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+		desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS; // needed!
 		desc.Width = d3d.width;
 		desc.Height = d3d.height;
 		desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
@@ -2002,12 +2109,20 @@ namespace DXR
 		desc.SampleDesc.Count = 1;
 		desc.SampleDesc.Quality = 0;
 
-		// Create the buffer resource
+		// Create the RT Out buffer resource
 		HRESULT hr = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr, IID_PPV_ARGS(&resources.DXROutput));
 		Utils::Validate(hr, L"Error: failed to create DXR output buffer!");
 #if NAME_D3D_RESOURCES
 		resources.DXROutput->SetName(L"DXR Output Buffer");
 #endif
+
+		// Create the G buffer resource
+		HRESULT hrg = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr, IID_PPV_ARGS(&resources.gBuffer));
+		Utils::Validate(hrg, L"Error: failed to create G buffer!");
+#if NAME_D3D_RESOURCES
+		resources.gBuffer->SetName(L"G Buffer");
+#endif
+
 	}
 
 
@@ -2033,7 +2148,7 @@ namespace DXR
 		HRESULT hr = d3d.device->CreateCommittedResource(&DefaultHeapProperties, D3D12_HEAP_FLAG_NONE, &desc, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resources.DXRAccBuffer));
 		Utils::Validate(hr, L"Error: failed to create DXR Acc Buffer buffer!");
 #if NAME_D3D_RESOURCES
-		resources.DXROutput->SetName(L"DXR Acc Buffer Buffer");
+		resources.DXRAccBuffer->SetName(L"DXR Acc Buffer Buffer");
 #endif
 	}
 
@@ -2108,7 +2223,7 @@ void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resour
 #endif
 */
 
-	D3D12_RESOURCE_BARRIER OutputBarriers[2] = {};
+	D3D12_RESOURCE_BARRIER OutputBarriers[3] = {};
 	D3D12_RESOURCE_BARRIER CounterBarriers[2] = {};
 	D3D12_RESOURCE_BARRIER UAVBarriers[3] = {};
 
@@ -2118,12 +2233,18 @@ void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resour
 	OutputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 	OutputBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-	// Transition the DXR output buffer to a copy source
+	// Transition the DXR output buffer to a write state Unordered access
 	OutputBarriers[1].Transition.pResource = resources.DXROutput;
 	OutputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
 	OutputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 	OutputBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
+/*
+	// Transition the G buffer to a write state Unordered access
+	OutputBarriers[2].Transition.pResource = resources.gBuffer;
+	OutputBarriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	OutputBarriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	OutputBarriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+*/
 	// Wait for the transitions to complete
 	d3d.cmdList->ResourceBarrier(2, OutputBarriers);
 
@@ -2166,7 +2287,13 @@ void Build_Command_List(D3D12Global &d3d, DXRGlobal &dxr, D3D12Resources &resour
 #endif
 	d3d.cmdList->DispatchRays(&desc);
 
+	// here we will have gBuffer and shadowTex
+	// perform sigma denoising
+	// transition both to SRV texture2d
+	// dispatch composition CS
 
+
+	// This stays the same, as composition will write to RTOutput
 	// Transition DXR output to a copy source
 	OutputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 	OutputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;

@@ -162,6 +162,7 @@ void Validate(HRESULT hr, LPWSTR msg)
 
 		_com_error err(hr);
 		LPCTSTR errMsg = err.ErrorMessage();
+		//LPCTSTR errMsg = err.ErrorInfo();
 		//MessageBox(NULL, msg, L"Error", MB_OK);
 		MessageBox(NULL, errMsg, L"Error", MB_OK);
 		PostQuitMessage(EXIT_FAILURE);
