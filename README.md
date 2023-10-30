@@ -1,3 +1,11 @@
+## notes
+
+Currently getting this error:
+```
+D3D12 ERROR: ID3D12Device::CreateComputeShader: Shader must be cs_6_5, cs_6_4, cs_6_3, cs_6_2, cs_6_1, cs_6_0, cs_5_1, cs_5_0, cs_4_1, cs_4_0. Shader version provided: cs_6_3. [ STATE_CREATION ERROR #881: CREATECOMPUTEPIPELINESTATE_INVALID_SHADER]
+```
+Which needs some understanding. I dont think ID3D12DEVICE has a CreateComputeShader
+
 # NRD- Sigma shadow denoising
 
 Workflow of the NRD Sample
